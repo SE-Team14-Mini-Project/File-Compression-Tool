@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# VS Code personal settings
+.vscode/
+
+# C++ build outputs
+build/
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dylib
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Temporary files
+*.tmp
+*.bak
