@@ -16,6 +16,16 @@ int main(int argc, char* argv[]) {
 
     const std::string command = argv[1];
 
+    if (command == "help" || command == "--help" ||
+        command == "-h") {
+        std::cout << "Usage:\n"
+                  << "  huf compress <input> <archive>\n"
+                  << "  huf decompress <archive> <output>\n"
+                  << "  huf info <archive>\n"
+                  << "  huf help\n";
+        return 0;
+    }
+
     if (command == "compress") {
         if (argc != 4) {
             std::cerr << "Usage: huf compress <input> <archive>\n";
@@ -83,7 +93,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::cerr << "Unknown command: " << command << '\n'
-              << "Available commands: compress, decompress, info\n";
+              << "Available commands: compress, decompress, info, help\n";
     return 1;
 }
 
