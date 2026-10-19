@@ -144,7 +144,7 @@ These are **planned acceptance expectations**, not completed test results.
 
 ## Project documents and links
 
-- [Repository](https://github.com/SE-Team14-Mini-Project/SE-Mini-project-14)
+- [Repository](https://github.com/SE-Team14-Mini-Project/File-Compression-Tool)
 - [GitHub Project / sprint backlog](https://github.com/orgs/SE-Team14-Mini-Project/projects/1)
 - Part-1 deliverables: **SRS**, **Software Test Plan**, and **Software Architecture and Design (SAD)** — consult the versions committed to this repository.
 - [`docs/ARCHIVE_FORMAT.md`](docs/ARCHIVE_FORMAT.md) for exact on-disk details and the worked `AAAAABBBCC` test vector.
