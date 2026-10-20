@@ -22,3 +22,5 @@ cmake_install.cmake
 # Temporary files
 *.tmp
 *.bak
+# Local test executable
+/test_huffman_tree
