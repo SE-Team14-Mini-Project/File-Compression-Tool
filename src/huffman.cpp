@@ -203,4 +203,106 @@ Result encode(istream& input, const CodeTable& codes,
 }
 
 
+Result decode(istream& packedBits, const HuffmanTree& tree,
+              uint64_t meaningfulBits, uint64_t originalBytes,
+              ostream& restored) {
+
+    // Empty file
+    if (originalBytes == 0) {
+        if (meaningfulBits != 0 || tree != nullptr) {
+            return {ErrorCode::InvalidArchive, "Invalid empty archive"};
+        }
+        return {};
+    }
+
+    // Non-empty file must have a Huffman tree
+    if (tree == nullptr) {
+        return {ErrorCode::InvalidArchive, "Missing Huffman tree"};
+    }
+
+    uint64_t decodedBytes = 0;
+    uint64_t bitsRead = 0;
+    HuffmanTree current = tree;
+
+    // Read the compressed data one byte at a time
+    while (bitsRead < meaningfulBits) {
+
+        char ch;
+        if (!packedBits.get(ch)) {
+            return {packedBits.bad() ? ErrorCode::IoError
+                                     : ErrorCode::InvalidArchive,
+                    "Compressed data is incomplete"};
+        }
+
+        unsigned char byte = ch;
+
+        // Read bits from left to right (MSB first)
+        for (int i = 7; i >= 0 && bitsRead < meaningfulBits; i--) {
+
+            bool bit = (byte >> i) & 1;
+            bitsRead++;
+
+            // Special case: only one unique character
+            if (tree->symbol != -1) {
+                if (bit != 0) {
+                    return {ErrorCode::InvalidArchive, "Invalid single-symbol code"};
+                }
+            }
+            else {
+                if (bit == 0) {
+                    current = current->left;
+                }
+                else {
+                    current = current->right;
+                }
+
+                if (current == nullptr) {
+                    return {ErrorCode::InvalidArchive, "Invalid Huffman code"};
+                }
+            }
+
+            // Reached a character in the tree
+            if (current->symbol != -1) {
+
+                if (decodedBytes >= originalBytes) {
+                    return {ErrorCode::InvalidArchive, "Too many decoded bytes"};
+                }
+
+                restored.put(static_cast<char>(current->symbol));
+
+                if (!restored) {
+                    return {ErrorCode::IoError, "Failed to write decoded data"};
+                }
+
+                decodedBytes++;
+                current = tree;
+            }
+        }
+
+        // Check the unused padding bits in the last byte
+        if (bitsRead == meaningfulBits && meaningfulBits % 8 != 0) {
+
+            int padding = 8 - meaningfulBits % 8;
+            unsigned char mask = (1 << padding) - 1;
+
+            if ((byte & mask) != 0) {
+                return {ErrorCode::InvalidArchive, "Invalid padding bits"};
+            }
+        }
+    }
+
+    // Verify that decoding ended at the root
+    if (current != tree) {
+        return {ErrorCode::InvalidArchive, "Incomplete Huffman code"};
+    }
+
+    // Verify the original number of bytes was restored
+    if (decodedBytes != originalBytes) {
+        return {ErrorCode::InvalidArchive, "Decoded size mismatch"};
+    }
+
+    return {};
+}
+
+
 } // namespace team14
