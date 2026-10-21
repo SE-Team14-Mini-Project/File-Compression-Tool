@@ -203,4 +203,155 @@ Result encode(istream& input, const CodeTable& codes,
 }
 
 
+
+// Decode MSB-first Huffman payload bits into the restored stream.
+Result decode(istream& packedBits, const HuffmanTree& tree,
+              uint64_t meaningfulBits, uint64_t originalBytes,
+              ostream& restored) {
+    if (originalBytes == 0) {
+        if (meaningfulBits != 0 || tree != nullptr) {
+            return {ErrorCode::InvalidArchive,
+                    "Invalid empty-file Huffman metadata."};
+        }
+        return {};
+    }
+
+    if (!tree || meaningfulBits == 0) {
+        return {ErrorCode::InvalidArchive,
+                "Missing Huffman tree or encoded bits."};
+    }
+
+    uint64_t produced = 0;
+    unsigned char lastByte = 0;
+
+    if (tree->symbol != -1) {
+        if (meaningfulBits != originalBytes) {
+            return {ErrorCode::InvalidArchive,
+                    "Invalid bit count for a single-symbol archive."};
+        }
+
+        for (uint64_t bitIndex = 0; bitIndex < meaningfulBits; ++bitIndex) {
+            if (bitIndex % 8 == 0) {
+                char rawByte = 0;
+                if (!packedBits.get(rawByte)) {
+                    return {ErrorCode::InvalidArchive,
+                            "Encoded payload is truncated."};
+                }
+                lastByte = static_cast<unsigned char>(rawByte);
+            }
+
+            const unsigned shift =
+                7U - static_cast<unsigned>(bitIndex % 8);
+            if (((lastByte >> shift) & 1U) != 0) {
+                return {ErrorCode::InvalidArchive,
+                        "Invalid bit in a single-symbol payload."};
+            }
+
+            restored.put(static_cast<char>(tree->symbol));
+            if (!restored) {
+                return {ErrorCode::IoError,
+                        "Failed to write decoded output."};
+            }
+        }
+
+        const unsigned remainder =
+            static_cast<unsigned>(meaningfulBits % 8);
+        if (remainder != 0) {
+            const unsigned unusedBits = 8U - remainder;
+            const unsigned char mask =
+                static_cast<unsigned char>((1U << unusedBits) - 1U);
+            if ((lastByte & mask) != 0) {
+                return {ErrorCode::InvalidArchive,
+                        "Non-zero padding bits in encoded payload."};
+            }
+        }
+        return {};
+    }
+
+    HuffmanTree current = tree;
+
+    for (uint64_t bitIndex = 0; bitIndex < meaningfulBits; ++bitIndex) {
+        if (bitIndex % 8 == 0) {
+            char rawByte = 0;
+            if (!packedBits.get(rawByte)) {
+                return {ErrorCode::InvalidArchive,
+                        "Encoded payload is truncated."};
+            }
+            lastByte = static_cast<unsigned char>(rawByte);
+        }
+
+        const unsigned shift = 7U - static_cast<unsigned>(bitIndex % 8);
+        const bool bit = ((lastByte >> shift) & 1U) != 0;
+
+        if (tree->symbol != -1) {
+            // A single-symbol tree uses code 0 for each occurrence.
+            if (bit) {
+                return {ErrorCode::InvalidArchive,
+                        "Invalid bit in a single-symbol payload."};
+            }
+
+            if (produced >= originalBytes) {
+                return {ErrorCode::InvalidArchive,
+                        "Decoded output exceeds the declared size."};
+            }
+
+            restored.put(static_cast<char>(tree->symbol));
+            if (!restored) {
+                return {ErrorCode::IoError,
+                        "Failed to write decoded output."};
+            }
+            ++produced;
+            continue;
+        }
+
+        // Follow the next bit through the Huffman tree.
+        current = bit ? current->right : current->left;
+        if (!current) {
+            return {ErrorCode::InvalidArchive,
+                    "Encoded bits do not match the Huffman tree."};
+        }
+
+        if (current->symbol != -1) {
+            if (produced >= originalBytes) {
+                return {ErrorCode::InvalidArchive,
+                        "Decoded output exceeds the declared size."};
+            }
+
+            restored.put(static_cast<char>(current->symbol));
+            if (!restored) {
+                return {ErrorCode::IoError,
+                        "Failed to write decoded output."};
+            }
+
+            ++produced;
+            current = tree;
+        }
+    }
+
+    if (current != tree) {
+        return {ErrorCode::InvalidArchive,
+                "Encoded bits end in the middle of a Huffman code."};
+    }
+
+    if (produced != originalBytes) {
+        return {ErrorCode::InvalidArchive,
+                "Decoded size does not match the archive header."};
+    }
+
+    // Unused low-order bits in the final byte must be zero.
+    const unsigned remainder = static_cast<unsigned>(meaningfulBits % 8);
+    if (remainder != 0) {
+        const unsigned unusedBits = 8U - remainder;
+        const unsigned char mask =
+            static_cast<unsigned char>((1U << unusedBits) - 1U);
+        if ((lastByte & mask) != 0) {
+            return {ErrorCode::InvalidArchive,
+                    "Non-zero padding bits in encoded payload."};
+        }
+    }
+
+    return {};
+}
+
+
 } // namespace team14
