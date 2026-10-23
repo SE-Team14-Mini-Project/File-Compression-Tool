@@ -4,6 +4,8 @@
 //   src/archive.cpp src/validation.cpp tests/test_validation.cpp -o /tmp/team14-test-validation
 #include "interfaces.h"
 #include <iostream>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -196,6 +198,71 @@ int main() {
                 validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "single-symbol archive with incorrect bit count rejected");
+        }
+
+                // --- Decoded output integrity tests (NFR-SEC-01). ---
+        const auto testDir =
+            std::filesystem::temp_directory_path() /
+            "team14_validation_tests";
+
+        std::filesystem::create_directories(testDir);
+        const auto outputPath = testDir / "decoded_test.bin";
+
+        // Correct restored file size, checksum disabled.
+        {
+            {
+                std::ofstream out(outputPath, std::ios::binary);
+                out << "hello";
+            }
+
+            ArchiveMetadata meta;
+            meta.originalBytes = 5;
+
+            expect(verifyDecodedFile(outputPath, meta).ok(),
+                   "correct decoded file size accepted");
+
+            meta.originalBytes = 4;
+            expect(verifyDecodedFile(outputPath, meta).code ==
+                       ErrorCode::IntegrityFailure,
+                   "incorrect decoded file size rejected");
+        }
+
+        // CRC32 of "hello" is 0x3610A686.
+        {
+            {
+                std::ofstream out(outputPath, std::ios::binary);
+                out << "hello";
+            }
+
+            ArchiveMetadata meta;
+            meta.originalBytes = 5;
+            meta.flags = kFlagCrc32Present;
+            meta.crc32 = 0x3610A686U;
+
+            expect(verifyDecodedFile(outputPath, meta).ok(),
+                   "correct decoded file checksum accepted");
+
+            meta.crc32 ^= 1U;
+            expect(verifyDecodedFile(outputPath, meta).code ==
+                       ErrorCode::IntegrityFailure,
+                   "incorrect decoded file checksum rejected");
+        }
+
+        // A missing output file must fail safely.
+        {
+            const auto missingPath = testDir / "missing.bin";
+            std::error_code ec;
+            std::filesystem::remove(missingPath, ec);
+
+            ArchiveMetadata meta;
+            expect(verifyDecodedFile(missingPath, meta).code ==
+                       ErrorCode::IoError,
+                   "missing decoded file rejected");
+        }
+
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(testDir, ec);
         }
 
 
