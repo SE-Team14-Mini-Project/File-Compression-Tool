@@ -19,8 +19,12 @@ The test suite in `test_round_trip.cpp` covers:
   bytes, along with repeated bytes.
 
 Each successful case checks input creation, compression success, archive
-creation, decompression success, restored-byte equality, and restored byte
-count.
+creation, decompression success, restored-byte equality, SHA-256 hash
+equality between the original and restored data, and restored byte count.
+
+The SHA-256 implementation is also checked against the standard
+empty-input test vector.
+
 
 ### Malformed archive cases
 
@@ -56,7 +60,11 @@ g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude `
 
 ## Recorded verification
 
-The reported test run passed all four successful round-trip cases and all three malformed-archive rejection cases. Each malformed case verified that no output file was published.
+The recorded verification covers:
+- SHA-256 known-answer tests for empty input and the standard `abc` test vector.
+- Successful lossless round trips for empty, one-byte, text, and binary files.
+- Original and restored byte equality, SHA-256 hash equality, and restored byte count.
+- Rejection of truncated archives, invalid padding, and trailing data, with no output published for rejected archives.
 
 ## Scope and limitations
 
