@@ -1,4 +1,4 @@
-// FR-DEC-01 (TC-08 / ST-08): archives with an unsupported magic or format
+﻿// FR-DEC-01 (TC-08 / ST-08): archives with an unsupported magic or format
 // version must be rejected before any restoration is trusted.
 // Standalone: g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -Iinclude
 //   src/archive.cpp src/validation.cpp tests/test_validation.cpp -o /tmp/team14-test-validation
@@ -7,6 +7,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <limits>
 #include <algorithm>
 
 using namespace team14;
@@ -114,6 +115,89 @@ int main() {
             ArchiveMetadata meta;                       // defaults to kArchiveVersion
             expect(validateArchiveMetadata(meta, kDefaultMaxOutputBytes).ok(), "supported version accepted");
         }
+
+
+        // --- Malformed metadata and security bounds (NFR-SEC-01). ---
+        {
+            ArchiveMetadata meta;
+            meta.flags = 0x80;
+            expect(
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "unknown flag bits rejected");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.crc32 = 1; // CRC flag is disabled by default.
+            expect(
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "CRC rejected when checksum flag is disabled");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.originalBytes = 10;
+            meta.encodedBits = 10;
+            meta.frequencies['A'] = 10;
+            expect(
+                validateArchiveMetadata(meta, 9).code ==
+                    ErrorCode::OutputLimitExceeded,
+                "output exceeding configured limit rejected");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.originalBytes = 11;
+            meta.encodedBits = 15;
+            meta.frequencies['A'] = 5;
+            meta.frequencies['B'] = 3;
+            meta.frequencies['C'] = 2;
+            expect(
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "frequency total mismatch rejected");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.frequencies[0] =
+                std::numeric_limits<std::uint64_t>::max();
+            meta.frequencies[1] = 1;
+            meta.originalBytes =
+                std::numeric_limits<std::uint64_t>::max();
+            expect(
+                validateArchiveMetadata(
+                    meta, std::numeric_limits<std::uint64_t>::max()).code ==
+                    ErrorCode::InvalidArchive,
+                "frequency sum overflow rejected");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.encodedBits = 1; // Empty archive cannot contain encoded bits.
+            expect(
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "empty archive with nonzero bit count rejected");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.originalBytes = 1;
+            meta.frequencies['A'] = 1;
+            // encodedBits remains zero.
+            expect(
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "non-empty archive with zero encoded bits rejected");
+        }
+        {
+            ArchiveMetadata meta;
+            meta.originalBytes = 2;
+            meta.encodedBits = 3;
+            meta.frequencies['A'] = 2;
+            expect(
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "single-symbol archive with incorrect bit count rejected");
+        }
+
 
         std::cout << "PASS: " << checks << " validation checks\n";
     } catch (const std::exception& error) {
