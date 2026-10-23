@@ -164,7 +164,7 @@ These are **planned acceptance expectations**, not completed test results.
 - [GitHub Project / sprint backlog](https://github.com/orgs/SE-Team14-Mini-Project/projects/1)
 - Part-1 deliverables: **SRS**, **Software Test Plan**, and **Software Architecture and Design (SAD)** — consult the versions committed to this repository.
 
-- [docs/ARCHIVE_FORMAT.md](docs/ARCHIVE_FORMAT.md) for exact on-disk details and the worked test vector.
+- [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md) for exact on-disk details and the worked `AAAAABBBCC` test vector.
 - [Round-trip restoration tests](tests/ROUND_TRIP_TESTS.md) - Issue #7 test coverage and verification instructions.
 
 **Change control:** once the team approves the interface/archive baseline, do not change a signature, field offset, encoding rule, or error convention silently. Update both contract documents and relevant tests in the same reviewed PR.
