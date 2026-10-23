@@ -2,9 +2,24 @@
 
 **PES University | Software Engineering Mini-Project | C++17**
 
-A planned command-line, **lossless file compressor and decompressor** built around Huffman coding. This is a **custom ZIP-style educational utility**, not a standard `.zip` / DEFLATE implementation. The archive extension is `.huf`, and version 1 of our format is defined in [`docs/ARCHIVE_FORMAT.md`](docs/ARCHIVE_FORMAT.md).
+A planned command-line, **lossless file compressor and decompressor** built around Huffman coding. This is a **custom ZIP-style educational utility**, not a standard `.zip` / DEFLATE implementation. The archive extension is `.huf`, and version 1 of our format is defined in [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md).
 
-> **Project status:** Design and backlog prepared. `include/interfaces.h` contains declarations only. The compressor/decompressor, tests, and CLI will be implemented during the planned sprints. This repository should not yet be described as a working compression tool.
+> **Build status:** CMake now builds the existing C++17 modules and `huf` CLI and registers the available tests with CTest. Development and integration are ongoing; a successful build is not a claim that every planned acceptance/security requirement is complete.
+
+## Build and test (C++17)
+
+Requires CMake 3.20+, a C++17 compiler/standard library, and a native build tool.
+For Linux/macOS, from the repository root:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+./build/huf help
+```
+
+See [build instructions](Docs/BUILDING.md) for Windows/Visual Studio, Release
+builds, compiler selection, test targets and verification limitations.
 
 ## What we are building
 
@@ -32,7 +47,7 @@ Responsibilities describe component ownership; everybody reviews integration cha
 **The two files below must be reviewed together:**
 
 1. [`include/interfaces.h`](include/interfaces.h) — shared **C++ declarations**: types, function signatures, result/error codes, statistics and module hand-offs. It does **not** contain implementations.
-2. [`docs/ARCHIVE_FORMAT.md`](docs/ARCHIVE_FORMAT.md) — precise `.huf` **binary file format**: byte offsets, endianness, sparse frequencies, tree tie-breaking, payload bits, padding, CRC32 flags, edge cases, and validation rules.
+2. [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md) — precise `.huf` **binary file format**: byte offsets, endianness, sparse frequencies, tree tie-breaking, payload bits, padding, CRC32 flags, edge cases, and validation rules.
 
 ### Why both files matter
 
@@ -85,31 +100,32 @@ SE-Mini-project-14/
 ├── README.md
 ├── include/
 │   └── interfaces.h             # One shared contract for all components
-├── docs/
+├── Docs/
 │   └── ARCHIVE_FORMAT.md        # Detailed version-1 file format
-├── src/                         # To be added during implementation
+├── src/                         # Module implementations
 │   ├── huffman.cpp              # Divisha
 │   ├── archive.cpp              # Debaditya
 │   ├── file_io.cpp              # Debaditya
 │   ├── controller.cpp           # Greeshma
 │   ├── validation.cpp           # Chandrakanth
 │   └── main.cpp                 # CLI entry point
-├── tests/                       # To be added during implementation
-└── CMakeLists.txt               # To be added during implementation
+├── tests/                       # Existing module tests
+└── CMakeLists.txt               # C++17 library, CLI and CTest configuration
 ```
 
-The `src/`, `tests/` and `CMakeLists.txt` entries above are a **proposed structure**, not a claim that they already exist. Agree on changes to filenames/layout before implementing imports and build configuration.
+The original layout above describes module ownership; `src/`, the available `tests/`, and `CMakeLists.txt` now exist. Agree on subsequent changes to filenames/layout before modifying shared build configuration.
 
-## Planned CLI (not implemented yet)
+## CLI commands
 
 ```sh
-# Command forms in the SRS; executable name will be finalized with the build
-compress input.txt output.huf
-decompress output.huf restored.txt
-info output.huf
+# Run the built executable; use the Windows path described in Docs/BUILDING.md
+./build/huf compress input.txt output.huf
+./build/huf decompress output.huf restored.txt
+./build/huf info output.huf
+./build/huf help
 ```
 
-The CLI will report errors and nonzero exit codes on failure. **Build and run commands will be documented when the executable and build system exist.**
+The CLI reports errors and nonzero exit codes on failure. See [build instructions](Docs/BUILDING.md) for executable locations and test commands.
 
 ## Sprint plan
 
@@ -130,7 +146,7 @@ The CLI will report errors and nonzero exit codes on failure. **Build and run co
 6. Greeshma integrates the modules, runs the CLI end-to-end, and coordinates fixes with owners.
 7. Update the corresponding GitHub issue status only when work actually starts or finishes.
 
-Compile source files with `-Iinclude` so `#include "interfaces.h"` resolves. The exact CMake/build command will be supplied after the build system is added.
+Compile source files with `-Iinclude` so `#include "interfaces.h"` resolves. CMake supplies this include path; use the build commands above.
 
 ## Acceptance and testing focus
 
@@ -147,6 +163,6 @@ These are **planned acceptance expectations**, not completed test results.
 - [Repository](https://github.com/SE-Team14-Mini-Project/File-Compression-Tool)
 - [GitHub Project / sprint backlog](https://github.com/orgs/SE-Team14-Mini-Project/projects/1)
 - Part-1 deliverables: **SRS**, **Software Test Plan**, and **Software Architecture and Design (SAD)** — consult the versions committed to this repository.
-- [`docs/ARCHIVE_FORMAT.md`](docs/ARCHIVE_FORMAT.md) for exact on-disk details and the worked `AAAAABBBCC` test vector.
+- [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md) for exact on-disk details and the worked `AAAAABBBCC` test vector.
 
 **Change control:** once the team approves the interface/archive baseline, do not change a signature, field offset, encoding rule, or error convention silently. Update both contract documents and relevant tests in the same reviewed PR.

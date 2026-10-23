@@ -1,0 +1,67 @@
+cmake_minimum_required(VERSION 3.20)
+project(Team14FileCompressionTool LANGUAGES CXX)
+
+# Require the agreed language standard, without GNU/other vendor extensions.
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+function(team14_enable_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endfunction()
+
+# Explicit source lists keep test entry points out of the CLI and make new
+# module integration a deliberate, reviewable build change.
+add_library(team14_core STATIC
+    src/archive.cpp
+    src/controller.cpp
+    src/file_io.cpp
+    src/huffman.cpp
+    src/validation.cpp
+)
+target_include_directories(team14_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_features(team14_core PUBLIC cxx_std_17)
+team14_enable_warnings(team14_core)
+
+add_executable(huf src/main.cpp)
+target_link_libraries(huf PRIVATE team14_core)
+team14_enable_warnings(huf)
+
+include(CTest)
+if(BUILD_TESTING)
+    function(team14_add_module_test name source)
+        set(target "team14_test_${name}")
+        add_executable(${target} "${source}")
+        target_link_libraries(${target} PRIVATE team14_core)
+        team14_enable_warnings(${target})
+
+        # The existing frequency suite uses assert(). Keep assertions enabled
+        # in tests even when Release/RelWithDebInfo defines NDEBUG.
+        if(MSVC)
+            target_compile_options(${target} PRIVATE /UNDEBUG)
+        elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+            target_compile_options(${target} PRIVATE -UNDEBUG)
+        endif()
+
+        # Existing tests use temporary files. Isolate their work/temp paths
+        # across tests and separate build trees, including parallel CTest runs.
+        set(work "${CMAKE_CURRENT_BINARY_DIR}/test-work/${name}")
+        file(MAKE_DIRECTORY "${work}")
+        add_test(NAME "team14.${name}" COMMAND ${target})
+        set_tests_properties("team14.${name}" PROPERTIES
+            WORKING_DIRECTORY "${work}"
+            ENVIRONMENT "TMPDIR=${work};TMP=${work};TEMP=${work}"
+        )
+    endfunction()
+
+    team14_add_module_test(frequency tests/test_frequency.cpp)
+    team14_add_module_test(file_io tests/test_file_io.cpp)
+    team14_add_module_test(archive tests/test_archive.cpp)
+    team14_add_module_test(validation tests/test_validation.cpp)
+
+    add_test(NAME team14.cli_help COMMAND huf help)
+endif()
