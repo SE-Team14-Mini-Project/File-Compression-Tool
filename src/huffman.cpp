@@ -203,120 +203,102 @@ Result encode(istream& input, const CodeTable& codes,
 }
 
 
-Result decode(std::istream& packedBits, const HuffmanTree& tree,
-              std::uint64_t meaningfulBits, std::uint64_t originalBytes,
-              std::ostream& output) {
-    if (meaningfulBits == 0) {
-        if (originalBytes != 0 || tree != nullptr) {
-            return {ErrorCode::InvalidArchive,
-                    "Empty bitstream has inconsistent Huffman metadata."};
+Result decode(istream& packedBits, const HuffmanTree& tree,
+              uint64_t meaningfulBits, uint64_t originalBytes,
+              ostream& restored) {
+
+    // Empty file
+    if (originalBytes == 0) {
+        if (meaningfulBits != 0 || tree != nullptr) {
+            return {ErrorCode::InvalidArchive, "Invalid empty archive"};
         }
         return {};
     }
 
-    if (!tree || originalBytes == 0) {
-        return {ErrorCode::InvalidArchive,
-                "Non-empty bitstream has an invalid Huffman tree."};
+    // Non-empty file must have a Huffman tree
+    if (tree == nullptr) {
+        return {ErrorCode::InvalidArchive, "Missing Huffman tree"};
     }
 
-    std::uint64_t produced = 0;
-    unsigned char currentByte = 0;
-    HuffmanTree currentNode = tree;
+    uint64_t decodedBytes = 0;
+    uint64_t bitsRead = 0;
+    HuffmanTree current = tree;
 
-    for (std::uint64_t bitIndex = 0;
-         bitIndex < meaningfulBits; ++bitIndex) {
+    // Read the compressed data one byte at a time
+    while (bitsRead < meaningfulBits) {
 
-        // Read one packed byte for each group of eight encoded bits.
-        if (bitIndex % 8 == 0) {
-            char rawByte = 0;
-
-            if (!packedBits.get(rawByte)) {
-                return packedBits.bad()
-                    ? Result{ErrorCode::IoError,
-                             "Failed to read encoded payload."}
-                    : Result{ErrorCode::InvalidArchive,
-                             "Encoded payload is truncated."};
-            }
-
-            currentByte = static_cast<unsigned char>(rawByte);
+        char ch;
+        if (!packedBits.get(ch)) {
+            return {packedBits.bad() ? ErrorCode::IoError
+                                     : ErrorCode::InvalidArchive,
+                    "Compressed data is incomplete"};
         }
 
-        const unsigned bitPosition =
-            7U - static_cast<unsigned>(bitIndex % 8);
+        unsigned char byte = ch;
 
-        const bool bit =
-            ((currentByte >> bitPosition) & 1U) != 0;
+        // Read bits from left to right (MSB first)
+        for (int i = 7; i >= 0 && bitsRead < meaningfulBits; i--) {
 
-        // A single-symbol tree uses the code 0 for every occurrence.
-        if (tree->symbol != -1) {
-            if (bit) {
-                return {ErrorCode::InvalidArchive,
-                        "Invalid bit in a single-symbol Huffman stream."};
+            bool bit = (byte >> i) & 1;
+            bitsRead++;
+
+            // Special case: only one unique character
+            if (tree->symbol != -1) {
+                if (bit != 0) {
+                    return {ErrorCode::InvalidArchive, "Invalid single-symbol code"};
+                }
+            }
+            else {
+                if (bit == 0) {
+                    current = current->left;
+                }
+                else {
+                    current = current->right;
+                }
+
+                if (current == nullptr) {
+                    return {ErrorCode::InvalidArchive, "Invalid Huffman code"};
+                }
             }
 
-            if (produced >= originalBytes) {
-                return {ErrorCode::InvalidArchive,
-                        "Decoded data exceeds the declared original size."};
-            }
+            // Reached a character in the tree
+            if (current->symbol != -1) {
 
-            output.put(static_cast<char>(tree->symbol));
-            if (!output) {
-                return {ErrorCode::IoError,
-                        "Failed to write decoded output."};
-            }
+                if (decodedBytes >= originalBytes) {
+                    return {ErrorCode::InvalidArchive, "Too many decoded bytes"};
+                }
 
-            ++produced;
-            continue;
+                restored.put(static_cast<char>(current->symbol));
+
+                if (!restored) {
+                    return {ErrorCode::IoError, "Failed to write decoded data"};
+                }
+
+                decodedBytes++;
+                current = tree;
+            }
         }
 
-        currentNode = bit ? currentNode->right : currentNode->left;
+        // Check the unused padding bits in the last byte
+        if (bitsRead == meaningfulBits && meaningfulBits % 8 != 0) {
 
-        if (!currentNode) {
-            return {ErrorCode::InvalidArchive,
-                    "Encoded bitstream contains an invalid Huffman path."};
-        }
+            int padding = 8 - meaningfulBits % 8;
+            unsigned char mask = (1 << padding) - 1;
 
-        if (currentNode->symbol != -1) {
-            if (produced >= originalBytes) {
-                return {ErrorCode::InvalidArchive,
-                        "Decoded data exceeds the declared original size."};
+            if ((byte & mask) != 0) {
+                return {ErrorCode::InvalidArchive, "Invalid padding bits"};
             }
-
-            output.put(static_cast<char>(currentNode->symbol));
-            if (!output) {
-                return {ErrorCode::IoError,
-                        "Failed to write decoded output."};
-            }
-
-            ++produced;
-            currentNode = tree;
         }
     }
 
-    // Every encoded bit must end at a complete Huffman code.
-    if (currentNode != tree) {
-        return {ErrorCode::InvalidArchive,
-                "Encoded bitstream ends inside a Huffman code."};
+    // Verify that decoding ended at the root
+    if (current != tree) {
+        return {ErrorCode::InvalidArchive, "Incomplete Huffman code"};
     }
 
-    if (produced != originalBytes) {
-        return {ErrorCode::InvalidArchive,
-                "Decoded size does not match the declared original size."};
-    }
-
-    // The unused low-order bits of the final byte must be zero.
-    const unsigned usedBits =
-        static_cast<unsigned>(meaningfulBits % 8);
-
-    if (usedBits != 0) {
-        const unsigned unusedBits = 8U - usedBits;
-        const unsigned char paddingMask =
-            static_cast<unsigned char>((1U << unusedBits) - 1U);
-
-        if ((currentByte & paddingMask) != 0) {
-            return {ErrorCode::InvalidArchive,
-                    "Encoded payload contains nonzero padding bits."};
-        }
+    // Verify the original number of bytes was restored
+    if (decodedBytes != originalBytes) {
+        return {ErrorCode::InvalidArchive, "Decoded size mismatch"};
     }
 
     return {};

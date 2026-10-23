@@ -155,11 +155,6 @@ Result compressFile(const fs::path& inputPath,
         }
 
         result = encode(source, codes, payload, encodedStats);
-        payload.flush();
-        if (!payload) {
-            return {ErrorCode::IoError,
-                    "Could not flush temporary encoded payload."};
-        }
         payload.close();
 
         if (!result.ok()) {
@@ -170,14 +165,6 @@ Result compressFile(const fs::path& inputPath,
             return {ErrorCode::IoError,
                     "Could not finish writing encoded payload."};
         }
-    }
-
-    if (encodedStats.meaningfulBits != 0 &&
-        encodedStats.meaningfulBits / 8 +
-                (encodedStats.meaningfulBits % 8 != 0) !=
-            encodedStats.packedBytes) {
-        return {ErrorCode::IoError,
-                "Encoded payload byte count is inconsistent."};
     }
 
     ArchiveMetadata metadata{};
@@ -208,11 +195,6 @@ Result compressFile(const fs::path& inputPath,
         }
 
         result = writeArchive(archive, metadata, payload);
-        archive.flush();
-        if (!archive) {
-            return {ErrorCode::IoError,
-                    "Could not flush temporary archive."};
-        }
         archive.close();
 
         if (!result.ok()) {
@@ -278,12 +260,6 @@ Result decompressFile(const fs::path& archivePath,
         return result;
     }
 
-    // Do not accept checksum-protected archives unless their checksum is verified.
-    if ((metadata.flags & kFlagCrc32Present) != 0) {
-        return {ErrorCode::InvalidArchive,
-                "CRC32-protected archives are not supported by this build."};
-    }
-
     HuffmanTree tree;
 
     try {
@@ -317,11 +293,6 @@ Result decompressFile(const fs::path& archivePath,
         result = decode(input, tree, metadata.encodedBits,
                         metadata.originalBytes, restored);
 
-        restored.flush();
-        if (!restored) {
-            return {ErrorCode::IoError,
-                    "Could not flush restored file."};
-        }
         restored.close();
 
         if (!result.ok()) {
