@@ -203,4 +203,124 @@ Result encode(istream& input, const CodeTable& codes,
 }
 
 
+Result decode(std::istream& packedBits, const HuffmanTree& tree,
+              std::uint64_t meaningfulBits, std::uint64_t originalBytes,
+              std::ostream& output) {
+    if (meaningfulBits == 0) {
+        if (originalBytes != 0 || tree != nullptr) {
+            return {ErrorCode::InvalidArchive,
+                    "Empty bitstream has inconsistent Huffman metadata."};
+        }
+        return {};
+    }
+
+    if (!tree || originalBytes == 0) {
+        return {ErrorCode::InvalidArchive,
+                "Non-empty bitstream has an invalid Huffman tree."};
+    }
+
+    std::uint64_t produced = 0;
+    unsigned char currentByte = 0;
+    HuffmanTree currentNode = tree;
+
+    for (std::uint64_t bitIndex = 0;
+         bitIndex < meaningfulBits; ++bitIndex) {
+
+        // Read one packed byte for each group of eight encoded bits.
+        if (bitIndex % 8 == 0) {
+            char rawByte = 0;
+
+            if (!packedBits.get(rawByte)) {
+                return packedBits.bad()
+                    ? Result{ErrorCode::IoError,
+                             "Failed to read encoded payload."}
+                    : Result{ErrorCode::InvalidArchive,
+                             "Encoded payload is truncated."};
+            }
+
+            currentByte = static_cast<unsigned char>(rawByte);
+        }
+
+        const unsigned bitPosition =
+            7U - static_cast<unsigned>(bitIndex % 8);
+
+        const bool bit =
+            ((currentByte >> bitPosition) & 1U) != 0;
+
+        // A single-symbol tree uses the code 0 for every occurrence.
+        if (tree->symbol != -1) {
+            if (bit) {
+                return {ErrorCode::InvalidArchive,
+                        "Invalid bit in a single-symbol Huffman stream."};
+            }
+
+            if (produced >= originalBytes) {
+                return {ErrorCode::InvalidArchive,
+                        "Decoded data exceeds the declared original size."};
+            }
+
+            output.put(static_cast<char>(tree->symbol));
+            if (!output) {
+                return {ErrorCode::IoError,
+                        "Failed to write decoded output."};
+            }
+
+            ++produced;
+            continue;
+        }
+
+        currentNode = bit ? currentNode->right : currentNode->left;
+
+        if (!currentNode) {
+            return {ErrorCode::InvalidArchive,
+                    "Encoded bitstream contains an invalid Huffman path."};
+        }
+
+        if (currentNode->symbol != -1) {
+            if (produced >= originalBytes) {
+                return {ErrorCode::InvalidArchive,
+                        "Decoded data exceeds the declared original size."};
+            }
+
+            output.put(static_cast<char>(currentNode->symbol));
+            if (!output) {
+                return {ErrorCode::IoError,
+                        "Failed to write decoded output."};
+            }
+
+            ++produced;
+            currentNode = tree;
+        }
+    }
+
+    // Every encoded bit must end at a complete Huffman code.
+    if (currentNode != tree) {
+        return {ErrorCode::InvalidArchive,
+                "Encoded bitstream ends inside a Huffman code."};
+    }
+
+    if (produced != originalBytes) {
+        return {ErrorCode::InvalidArchive,
+                "Decoded size does not match the declared original size."};
+    }
+
+    // The unused low-order bits of the final byte must be zero.
+    const unsigned usedBits =
+        static_cast<unsigned>(meaningfulBits % 8);
+
+    if (usedBits != 0) {
+        const unsigned unusedBits = 8U - usedBits;
+        const unsigned char paddingMask =
+            static_cast<unsigned char>((1U << unusedBits) - 1U);
+
+        if ((currentByte & paddingMask) != 0) {
+            return {ErrorCode::InvalidArchive,
+                    "Encoded payload contains nonzero padding bits."};
+        }
+    }
+
+    return {};
+}
+
+
 } // namespace team14
