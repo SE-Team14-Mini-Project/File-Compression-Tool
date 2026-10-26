@@ -77,14 +77,26 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
 }
 
 Result validateOutputPath(const fs::path& destination) {
-    if (destination.empty() || destination.filename().empty()) {
+    if (destination.empty() ||
+        destination.filename().empty() ||
+        destination == fs::path(".")) {
         return {ErrorCode::UnsafeOutputPath,
                 "Output path must include a filename."};
     }
 
+    // Reject parent-directory components to prevent path traversal.
+    for (const auto& component : destination) {
+        if (component == fs::path("..")) {
+            return {ErrorCode::UnsafeOutputPath,
+                    "Output path must not contain parent-directory components."};
+        }
+    }
+
     std::error_code error;
     const fs::path parent =
-        destination.has_parent_path() ? destination.parent_path() : fs::path(".");
+        destination.has_parent_path()
+            ? destination.parent_path()
+            : fs::path(".");
 
     if (!fs::exists(parent, error) || error ||
         !fs::is_directory(parent, error) || error) {

@@ -266,6 +266,49 @@ int main() {
         }
 
 
+        // Valid output paths must remain usable.
+        {
+            const auto relativeDir = testDir / "relative";
+            std::filesystem::create_directories(relativeDir);
+
+            const auto relativePath = relativeDir / "output.txt";
+            expect(
+                validateOutputPath(relativePath).ok(),
+                "valid output path with an existing parent accepted");
+
+            const auto absolutePath =
+                std::filesystem::absolute(testDir / "absolute-output.txt");
+            expect(
+                validateOutputPath(absolutePath).ok(),
+                "valid absolute output path accepted");
+        }
+
+        // --- Output path safety tests (NFR-SEC-02). ---
+        {
+            expect(
+                validateOutputPath({}).code == ErrorCode::UnsafeOutputPath,
+                "empty output path rejected");
+
+            expect(
+                validateOutputPath(".").code == ErrorCode::UnsafeOutputPath,
+                "current directory rejected as output");
+
+            expect(
+                validateOutputPath("../output.txt").code ==
+                    ErrorCode::UnsafeOutputPath,
+                "parent-directory output path rejected");
+
+            expect(
+                validateOutputPath("folder/../output.txt").code ==
+                    ErrorCode::UnsafeOutputPath,
+                "embedded parent-directory component rejected");
+
+            expect(
+                validateOutputPath("folder/../../output.txt").code ==
+                    ErrorCode::UnsafeOutputPath,
+                "multiple parent-directory components rejected");
+        }
+
         std::cout << "PASS: " << checks << " validation checks\n";
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';
