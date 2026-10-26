@@ -66,6 +66,17 @@ int main(int argc, char* argv[]) {
         std::cout << "Compression successful.\n"
                   << "Original size: " << stats.originalBytes << " bytes\n"
                   << "Archive size: " << stats.archiveBytes << " bytes\n";
+
+        if (stats.archiveBytes == 0) {
+            std::cout << "Compression ratio: N/A (archive size is zero)\n";
+        } else {
+            const double ratio =
+                static_cast<double>(stats.originalBytes) /
+                static_cast<double>(stats.archiveBytes);
+
+            std::cout << "Compression ratio: "
+                      << ratio << ":1\n";
+        }
         return kExitSuccess;
     }
 
