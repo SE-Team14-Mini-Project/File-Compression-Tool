@@ -64,5 +64,10 @@ if(BUILD_TESTING)
     team14_add_module_test(validation tests/test_validation.cpp)
     team14_add_module_test(security_logging tests/test_security_logging.cpp)
 
-    add_test(NAME team14.cli_help COMMAND huf help)
+    add_test(
+        NAME team14.cli_help
+        COMMAND ${CMAKE_COMMAND}
+            "-DHUF_EXECUTABLE=$<TARGET_FILE:huf>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cli.cmake"
+    )
 endif()
