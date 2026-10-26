@@ -104,8 +104,8 @@ Result compressFile(const fs::path& inputPath,
 
     try {
         frequencies = buildFrequencyTable(source);
-    } catch (const std::exception& error) {
-        return {ErrorCode::IoError, error.what()};
+    } catch (const std::exception&) {
+        return {ErrorCode::IoError, "Could not process input file while analyzing frequencies."};
     }
 
     if (source.bad()) {
@@ -123,8 +123,8 @@ Result compressFile(const fs::path& inputPath,
 
     try {
         tree = buildTree(frequencies);
-    } catch (const std::exception& error) {
-        return {ErrorCode::IoError, error.what()};
+    } catch (const std::exception&) {
+        return {ErrorCode::IoError, "Could not construct Huffman tree for compression."};
     }
 
     const CodeTable codes = generateCodes(tree);
@@ -264,8 +264,8 @@ Result decompressFile(const fs::path& archivePath,
 
     try {
         tree = buildTree(metadata.frequencies);
-    } catch (const std::exception& error) {
-        return {ErrorCode::InvalidArchive, error.what()};
+    } catch (const std::exception&) {
+        return {ErrorCode::InvalidArchive, "Could not construct Huffman tree from archive metadata."};
     }
 
     const fs::path parent =
