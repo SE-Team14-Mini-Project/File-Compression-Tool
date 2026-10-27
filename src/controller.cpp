@@ -75,7 +75,28 @@ Result publishWithoutOverwrite(const fs::path& temporaryFile,
     return {ErrorCode::IoError,
             "Could not safely publish the completed output file."};
 }
+std::uint32_t calculateCrc32(std::istream& input) {
+    std::uint32_t crc = 0xFFFFFFFFU;
+    char ch;
 
+    while (input.get(ch)) {
+        crc ^= static_cast<unsigned char>(ch);
+
+        for (int bit = 0; bit < 8; ++bit) {
+            if ((crc & 1U) != 0) {
+                crc = (crc >> 1) ^ 0xEDB88320U;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+
+    if (input.bad()) {
+        throw std::ios_base::failure("Failed to read input for CRC32.");
+    }
+
+    return crc ^ 0xFFFFFFFFU;
+}
 
 } // namespace
 
@@ -118,6 +139,21 @@ Result compressFile(const fs::path& inputPath,
     if (!source) {
         return {ErrorCode::IoError, "Could not rewind input file."};
     }
+
+    std::uint32_t checksum = 0;
+
+    try {
+        checksum = calculateCrc32(source);
+    } catch (const std::exception&) {
+        return {ErrorCode::IoError, "Could not calculate input CRC32."};
+}
+
+    source.clear();
+    source.seekg(0, std::ios::beg);
+
+    if (!source) {
+        return {ErrorCode::IoError, "Could not rewind input file after CRC32."};
+}
 
     HuffmanTree tree;
 
@@ -169,10 +205,10 @@ Result compressFile(const fs::path& inputPath,
 
     ArchiveMetadata metadata{};
     metadata.version = kArchiveVersion;
-    metadata.flags = 0;
+    metadata.flags = kFlagCrc32Present;
     metadata.originalBytes = 0;
     metadata.encodedBits = encodedStats.meaningfulBits;
-    metadata.crc32 = 0;
+    metadata.crc32 = checksum;
     metadata.frequencies = frequencies;
 
     for (const auto frequency : frequencies) {

@@ -63,6 +63,7 @@ if(BUILD_TESTING)
     team14_add_module_test(archive tests/test_archive.cpp)
     team14_add_module_test(validation tests/test_validation.cpp)
     team14_add_module_test(security_logging tests/test_security_logging.cpp)
+    team14_add_module_test(round_trip tests/test_round_trip.cpp)
 
     add_test(
         NAME team14.cli_help
