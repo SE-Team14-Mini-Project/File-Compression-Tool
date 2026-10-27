@@ -15,10 +15,15 @@ build/
 *.dylib
 
 # CMake generated files
+build/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+/build-vs/
 
 # Temporary files
 *.tmp
 *.bak
+
+# Local CRC32 integration test files
+/crc32-integration-test/
