@@ -1,151 +1,236 @@
-﻿// FR-DEC-01 (TC-08 / ST-08): archives with an unsupported magic or format
-// version must be rejected before any restoration is trusted.
-// Standalone: g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -Iinclude
-//   src/archive.cpp src/validation.cpp tests/test_validation.cpp -o /tmp/team14-test-validation
+﻿
 #include "interfaces.h"
-#include <iostream>
+
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <limits>
-#include <algorithm>
 
 using namespace team14;
+
 namespace {
+
 unsigned checks = 0;
+
 void expect(bool ok, const char* name) {
     ++checks;
-    if (!ok) throw std::runtime_error(name);
+
+    if (!ok) {
+        throw std::runtime_error(name);
+    }
 }
 
-// Documented AAAAABBBCC vector from ARCHIVE_FORMAT.md section 5 (59 bytes).
+// Documented AAAAABBBCC vector from ARCHIVE_FORMAT.md section 5.
 std::string validArchive() {
-    ArchiveMetadata m;
-    m.originalBytes = 10;
-    m.encodedBits = 15;
-    m.frequencies['A'] = 5;
-    m.frequencies['B'] = 3;
-    m.frequencies['C'] = 2;
-    std::istringstream payload(std::string("\x07\xf4", 2), std::ios::binary);
-    std::ostringstream out(std::ios::binary);
-    expect(writeArchive(out, m, payload).ok(), "build valid archive");
-    return out.str();
+    ArchiveMetadata metadata;
+
+    metadata.originalBytes = 10;
+    metadata.encodedBits = 15;
+    metadata.frequencies['A'] = 5;
+    metadata.frequencies['B'] = 3;
+    metadata.frequencies['C'] = 2;
+
+    std::istringstream payload(
+        std::string("\x07\xf4", 2),
+        std::ios::binary);
+
+    std::ostringstream output(std::ios::binary);
+
+    expect(
+        writeArchive(output, metadata, payload).ok(),
+        "build valid archive");
+
+    return output.str();
 }
 
-Result parse(const std::string& bytes, ArchiveMetadata& m) {
-    std::istringstream in(bytes, std::ios::binary);
-    return readArchiveHeader(in, m);
+Result parse(const std::string& bytes, ArchiveMetadata& metadata) {
+    std::istringstream input(bytes, std::ios::binary);
+    return readArchiveHeader(input, metadata);
 }
 
-// A rejected archive must not leave half-parsed metadata behind for the caller.
-bool metadataIsReset(const ArchiveMetadata& m) {
-    return m.version == kArchiveVersion &&
-           m.flags == 0 &&
-           m.originalBytes == 0 &&
-           m.encodedBits == 0 &&
-           m.crc32 == 0 &&
-           std::all_of(m.frequencies.begin(), m.frequencies.end(),
-                       [](std::uint64_t frequency) {
-                           return frequency == 0;
-                       });
+// A rejected archive must not leave half-parsed metadata behind.
+bool metadataIsReset(const ArchiveMetadata& metadata) {
+    return metadata.version == kArchiveVersion &&
+           metadata.flags == 0 &&
+           metadata.originalBytes == 0 &&
+           metadata.encodedBits == 0 &&
+           metadata.crc32 == 0 &&
+           std::all_of(
+               metadata.frequencies.begin(),
+               metadata.frequencies.end(),
+               [](std::uint64_t frequency) {
+                   return frequency == 0;
+               });
 }
+
 } // namespace
 
 int main() {
     try {
         const std::string good = validArchive();
-        ArchiveMetadata m;
+        ArchiveMetadata metadata;
 
-        // Baseline: a valid archive is accepted by the parser and the validator.
-        expect(parse(good, m).ok(), "valid archive accepted");
-        expect(validateArchiveMetadata(m, kDefaultMaxOutputBytes).ok(), "valid metadata accepted");
+        // --- Baseline: valid archive. ---
+        expect(parse(good, metadata).ok(),
+               "valid archive accepted");
 
-        // --- Magic bytes: every byte position, plus near-miss values. ---
-        for (std::size_t pos = 0; pos < 4; ++pos) {
+        expect(
+            validateArchiveMetadata(
+                metadata, kDefaultMaxOutputBytes).ok(),
+            "valid metadata accepted");
+
+        // --- Magic bytes: every byte position and near-miss values. ---
+        for (std::size_t position = 0; position < 4; ++position) {
             auto bad = good;
-            bad[pos] = static_cast<char>(bad[pos] ^ 0x20);   // flips letter case
-            m = ArchiveMetadata{};
-            expect(parse(bad, m).code == ErrorCode::InvalidArchive, "magic byte changed");
-            expect(metadataIsReset(m), "metadata empty after bad magic");
+            bad[position] =
+                static_cast<char>(bad[position] ^ 0x20);
+
+            metadata = ArchiveMetadata{};
+
+            expect(
+                parse(bad, metadata).code == ErrorCode::InvalidArchive,
+                "magic byte changed");
+
+            expect(
+                metadataIsReset(metadata),
+                "metadata empty after bad magic");
         }
-        for (const char* magic : {"HUF2", "huf1", "ZIP1", "PK\x03\x04"}) {
+
+        for (const char* magic : {
+                 "HUF2", "huf1", "ZIP1", "PK\x03\x04"}) {
             auto bad = good;
             bad.replace(0, 4, magic, 4);
-            expect(parse(bad, m).code == ErrorCode::InvalidArchive, "wrong magic string");
-        }
-        // A file that is not an archive at all (common user mistake).
-        expect(parse("hello, this is just a text file", m).code == ErrorCode::InvalidArchive, "plain text file");
-        expect(parse(std::string(64, '\0'), m).code == ErrorCode::InvalidArchive, "all-zero file");
-        // Too short to even contain the magic.
-        expect(parse("", m).code == ErrorCode::InvalidArchive, "empty file");
-        expect(parse("HUF", m).code == ErrorCode::InvalidArchive, "partial magic");
 
-        // --- Format version (byte offset 4). ---
+            expect(
+                parse(bad, metadata).code == ErrorCode::InvalidArchive,
+                "wrong magic string");
+        }
+
+        // Files that are not valid archives.
+        expect(
+            parse("hello, this is just a text file", metadata).code ==
+                ErrorCode::InvalidArchive,
+            "plain text file rejected");
+
+        expect(
+            parse(std::string(64, '\0'), metadata).code ==
+                ErrorCode::InvalidArchive,
+            "all-zero file rejected");
+
+        expect(
+            parse("", metadata).code == ErrorCode::InvalidArchive,
+            "empty file rejected");
+
+        expect(
+            parse("HUF", metadata).code == ErrorCode::InvalidArchive,
+            "partial magic rejected");
+
+        // --- Format version: byte offset 4. ---
         for (unsigned version : {0U, 2U, 3U, 127U, 128U, 255U}) {
             auto bad = good;
             bad[4] = static_cast<char>(version);
-            m = ArchiveMetadata{};
-            expect(parse(bad, m).code == ErrorCode::UnsupportedVersion, "unsupported version rejected by parser");
-            expect(metadataIsReset(m), "metadata empty after bad version");
+
+            metadata = ArchiveMetadata{};
+
+            expect(
+                parse(bad, metadata).code ==
+                    ErrorCode::UnsupportedVersion,
+                "unsupported version rejected by parser");
+
+            expect(
+                metadataIsReset(metadata),
+                "metadata empty after bad version");
         }
-        // Magic is checked first: if both are wrong it is reported as bad magic.
+
+        // Invalid magic takes precedence over an invalid version.
         {
             auto bad = good;
             bad[0] = 'X';
             bad[4] = 9;
-            expect(parse(bad, m).code == ErrorCode::InvalidArchive, "bad magic wins over bad version");
-        }
-        // Magic and version only: the parser must stop at the version, so later
-        // header fields are not trusted at all.
-        {
-            std::string onlyPrefix = "HUF1";
-            onlyPrefix.push_back(static_cast<char>(2));
-            expect(parse(onlyPrefix, m).code == ErrorCode::UnsupportedVersion, "version rejected before rest of header is read");
+
+            expect(
+                parse(bad, metadata).code == ErrorCode::InvalidArchive,
+                "bad magic takes precedence over bad version");
         }
 
-        // --- validateArchiveMetadata: second line of defence for the controller. ---
+        // The parser must reject an unsupported version before reading
+        // the remainder of the archive header.
+        {
+            std::string prefix = "HUF1";
+            prefix.push_back(static_cast<char>(2));
+
+            expect(
+                parse(prefix, metadata).code ==
+                    ErrorCode::UnsupportedVersion,
+                "version rejected before the rest of the header");
+        }
+
+        // --- Metadata validator: supported and unsupported versions. ---
         for (unsigned version : {0U, 2U, 255U}) {
             ArchiveMetadata meta;
             meta.version = static_cast<std::uint8_t>(version);
-            const Result r = validateArchiveMetadata(meta, kDefaultMaxOutputBytes);
-            expect(r.code == ErrorCode::UnsupportedVersion, "validator rejects unsupported version");
-            expect(!r.ok() && !r.message.empty(), "rejection carries an actionable message");
+
+            const Result result =
+                validateArchiveMetadata(meta, kDefaultMaxOutputBytes);
+
+            expect(
+                result.code == ErrorCode::UnsupportedVersion,
+                "validator rejects unsupported version");
+
+            expect(
+                !result.ok() && !result.message.empty(),
+                "rejection contains an actionable message");
         }
+
         {
-            ArchiveMetadata meta;                       // defaults to kArchiveVersion
-            expect(validateArchiveMetadata(meta, kDefaultMaxOutputBytes).ok(), "supported version accepted");
+            ArchiveMetadata meta;
+
+            expect(
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).ok(),
+                "supported version accepted");
         }
 
-
-        // --- Malformed metadata and security bounds (NFR-SEC-01). ---
+        // --- Malformed metadata and security bounds. ---
         {
             ArchiveMetadata meta;
             meta.flags = 0x80;
+
             expect(
-                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "unknown flag bits rejected");
         }
+
         {
             ArchiveMetadata meta;
-            meta.crc32 = 1; // CRC flag is disabled by default.
+            meta.crc32 = 1;
+
             expect(
-                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "CRC rejected when checksum flag is disabled");
         }
+
         {
             ArchiveMetadata meta;
             meta.originalBytes = 10;
             meta.encodedBits = 10;
             meta.frequencies['A'] = 10;
+
             expect(
                 validateArchiveMetadata(meta, 9).code ==
                     ErrorCode::OutputLimitExceeded,
                 "output exceeding configured limit rejected");
         }
+
         {
             ArchiveMetadata meta;
             meta.originalBytes = 11;
@@ -153,11 +238,14 @@ int main() {
             meta.frequencies['A'] = 5;
             meta.frequencies['B'] = 3;
             meta.frequencies['C'] = 2;
+
             expect(
-                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "frequency total mismatch rejected");
         }
+
         {
             ArchiveMetadata meta;
             meta.frequencies[0] =
@@ -165,73 +253,87 @@ int main() {
             meta.frequencies[1] = 1;
             meta.originalBytes =
                 std::numeric_limits<std::uint64_t>::max();
+
             expect(
                 validateArchiveMetadata(
-                    meta, std::numeric_limits<std::uint64_t>::max()).code ==
+                    meta,
+                    std::numeric_limits<std::uint64_t>::max()).code ==
                     ErrorCode::InvalidArchive,
                 "frequency sum overflow rejected");
         }
+
         {
             ArchiveMetadata meta;
-            meta.encodedBits = 1; // Empty archive cannot contain encoded bits.
+            meta.encodedBits = 1;
+
             expect(
-                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "empty archive with nonzero bit count rejected");
         }
+
         {
             ArchiveMetadata meta;
             meta.originalBytes = 1;
             meta.frequencies['A'] = 1;
-            // encodedBits remains zero.
+
             expect(
-                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "non-empty archive with zero encoded bits rejected");
         }
+
         {
             ArchiveMetadata meta;
             meta.originalBytes = 2;
             meta.encodedBits = 3;
             meta.frequencies['A'] = 2;
+
             expect(
-                validateArchiveMetadata(meta, kDefaultMaxOutputBytes).code ==
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
                     ErrorCode::InvalidArchive,
                 "single-symbol archive with incorrect bit count rejected");
         }
 
-                // --- Decoded output integrity tests (NFR-SEC-01). ---
+        // --- Decoded output integrity tests. ---
         const auto testDir =
             std::filesystem::temp_directory_path() /
             "team14_validation_tests";
 
         std::filesystem::create_directories(testDir);
+
         const auto outputPath = testDir / "decoded_test.bin";
 
-        // Correct restored file size, checksum disabled.
+        // Correct restored file size, with checksum disabled.
         {
             {
-                std::ofstream out(outputPath, std::ios::binary);
-                out << "hello";
+                std::ofstream output(outputPath, std::ios::binary);
+                output << "hello";
             }
 
             ArchiveMetadata meta;
             meta.originalBytes = 5;
 
-            expect(verifyDecodedFile(outputPath, meta).ok(),
-                   "correct decoded file size accepted");
+            expect(
+                verifyDecodedFile(outputPath, meta).ok(),
+                "correct decoded file size accepted");
 
             meta.originalBytes = 4;
-            expect(verifyDecodedFile(outputPath, meta).code ==
-                       ErrorCode::IntegrityFailure,
-                   "incorrect decoded file size rejected");
+
+            expect(
+                verifyDecodedFile(outputPath, meta).code ==
+                    ErrorCode::IntegrityFailure,
+                "incorrect decoded file size rejected");
         }
 
         // CRC32 of "hello" is 0x3610A686.
         {
             {
-                std::ofstream out(outputPath, std::ios::binary);
-                out << "hello";
+                std::ofstream output(outputPath, std::ios::binary);
+                output << "hello";
             }
 
             ArchiveMetadata meta;
@@ -239,58 +341,63 @@ int main() {
             meta.flags = kFlagCrc32Present;
             meta.crc32 = 0x3610A686U;
 
-            expect(verifyDecodedFile(outputPath, meta).ok(),
-                   "correct decoded file checksum accepted");
+            expect(
+                verifyDecodedFile(outputPath, meta).ok(),
+                "correct decoded file checksum accepted");
 
             meta.crc32 ^= 1U;
-            expect(verifyDecodedFile(outputPath, meta).code ==
-                       ErrorCode::IntegrityFailure,
-                   "incorrect decoded file checksum rejected");
+
+            expect(
+                verifyDecodedFile(outputPath, meta).code ==
+                    ErrorCode::IntegrityFailure,
+                "incorrect decoded file checksum rejected");
         }
 
         // A missing output file must fail safely.
         {
             const auto missingPath = testDir / "missing.bin";
-            std::error_code ec;
-            std::filesystem::remove(missingPath, ec);
+
+            std::error_code error;
+            std::filesystem::remove(missingPath, error);
 
             ArchiveMetadata meta;
-            expect(verifyDecodedFile(missingPath, meta).code ==
-                       ErrorCode::IoError,
-                   "missing decoded file rejected");
+
+            expect(
+                verifyDecodedFile(missingPath, meta).code ==
+                    ErrorCode::IoError,
+                "missing decoded file rejected");
         }
 
-        {
-            std::error_code ec;
-            std::filesystem::remove_all(testDir, ec);
-        }
-
-
-        // Valid output paths must remain usable.
+        // --- Valid output paths. ---
         {
             const auto relativeDir = testDir / "relative";
             std::filesystem::create_directories(relativeDir);
 
             const auto relativePath = relativeDir / "output.txt";
+
             expect(
                 validateOutputPath(relativePath).ok(),
                 "valid output path with an existing parent accepted");
 
             const auto absolutePath =
-                std::filesystem::absolute(testDir / "absolute-output.txt");
+                std::filesystem::absolute(
+                    testDir / "absolute-output.txt");
+
             expect(
                 validateOutputPath(absolutePath).ok(),
                 "valid absolute output path accepted");
         }
 
-        // --- Output path safety tests (NFR-SEC-02). ---
+        // --- Output path safety tests. ---
         {
             expect(
-                validateOutputPath({}).code == ErrorCode::UnsafeOutputPath,
+                validateOutputPath({}).code ==
+                    ErrorCode::UnsafeOutputPath,
                 "empty output path rejected");
 
             expect(
-                validateOutputPath(".").code == ErrorCode::UnsafeOutputPath,
+                validateOutputPath(".").code ==
+                    ErrorCode::UnsafeOutputPath,
                 "current directory rejected as output");
 
             expect(
@@ -307,6 +414,17 @@ int main() {
                 validateOutputPath("folder/../../output.txt").code ==
                     ErrorCode::UnsafeOutputPath,
                 "multiple parent-directory components rejected");
+
+            expect(
+                validateOutputPath("/outside.txt").code ==
+                    ErrorCode::UnsafeOutputPath,
+                "rooted output path without a root name rejected");
+        }
+
+        // Clean up test artifacts.
+        {
+            std::error_code error;
+            std::filesystem::remove_all(testDir, error);
         }
 
         std::cout << "PASS: " << checks << " validation checks\n";
@@ -314,4 +432,6 @@ int main() {
         std::cerr << "FAIL: " << error.what() << '\n';
         return 1;
     }
+
+    return 0;
 }

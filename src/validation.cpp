@@ -1,3 +1,4 @@
+
 #include "interfaces.h"
 
 #include <array>
@@ -21,7 +22,8 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
                 "Archive contains unsupported flags."};
     }
 
-    if ((metadata.flags & kFlagCrc32Present) == 0 && metadata.crc32 != 0) {
+    if ((metadata.flags & kFlagCrc32Present) == 0 &&
+        metadata.crc32 != 0) {
         return {ErrorCode::InvalidArchive,
                 "CRC value must be zero when CRC is disabled."};
     }
@@ -60,6 +62,7 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
             return {ErrorCode::InvalidArchive,
                     "Invalid empty archive metadata."};
         }
+
         return {};
     }
 
@@ -68,7 +71,8 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
                 "Non-empty archive has invalid size metadata."};
     }
 
-    if (symbolCount == 1 && metadata.encodedBits != metadata.originalBytes) {
+    if (symbolCount == 1 &&
+        metadata.encodedBits != metadata.originalBytes) {
         return {ErrorCode::InvalidArchive,
                 "Invalid bit count for a single-symbol archive."};
     }
@@ -77,6 +81,7 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
 }
 
 Result validateOutputPath(const fs::path& destination) {
+    // Reject empty paths and paths without a filename.
     if (destination.empty() ||
         destination.filename().empty() ||
         destination == fs::path(".")) {
@@ -84,7 +89,16 @@ Result validateOutputPath(const fs::path& destination) {
                 "Output path must include a filename."};
     }
 
-    // Reject parent-directory components to prevent path traversal.
+    // Reject rooted paths without a root name, such as /outside.txt
+    // or, on Windows, \outside.txt.
+    // Valid absolute paths such as C:\folder\file.txt remain permitted.
+    if (destination.has_root_directory() &&
+        !destination.has_root_name()) {
+        return {ErrorCode::UnsafeOutputPath,
+                "Rooted output paths without a root name are not permitted."};
+    }
+
+    // Reject parent-directory components.
     for (const auto& component : destination) {
         if (component == fs::path("..")) {
             return {ErrorCode::UnsafeOutputPath,
@@ -92,19 +106,27 @@ Result validateOutputPath(const fs::path& destination) {
         }
     }
 
+    // The output parent must already exist and be a directory.
     std::error_code error;
-    const fs::path parent =
-        destination.has_parent_path()
-            ? destination.parent_path()
-            : fs::path(".");
 
-    if (!fs::exists(parent, error) || error ||
-        !fs::is_directory(parent, error) || error) {
+    const fs::path parent = destination.has_parent_path()
+                                ? destination.parent_path()
+                                : fs::path(".");
+
+    if (!fs::exists(parent, error) || error) {
         return {ErrorCode::UnsafeOutputPath,
-                "Output parent directory does not exist or is not a directory."};
+                "Output parent directory does not exist."};
     }
 
+    if (!fs::is_directory(parent, error) || error) {
+        return {ErrorCode::UnsafeOutputPath,
+                "Output parent path is not a directory."};
+    }
+
+    // Reject an existing directory as the output destination.
+    error.clear();
     const auto status = fs::symlink_status(destination, error);
+
     if (!error && fs::is_directory(status)) {
         return {ErrorCode::UnsafeOutputPath,
                 "Output path points to a directory."};
@@ -116,6 +138,7 @@ Result validateOutputPath(const fs::path& destination) {
 Result verifyDecodedFile(const fs::path& output,
                          const ArchiveMetadata& metadata) {
     std::ifstream input(output, std::ios::binary);
+
     if (!input.is_open()) {
         return {ErrorCode::IoError,
                 "Could not open restored file for verification."};
@@ -130,6 +153,7 @@ Result verifyDecodedFile(const fs::path& output,
             return {ErrorCode::IntegrityFailure,
                     "Restored file size overflow."};
         }
+
         ++size;
 
         if ((metadata.flags & kFlagCrc32Present) != 0) {
@@ -157,6 +181,7 @@ Result verifyDecodedFile(const fs::path& output,
 
     if ((metadata.flags & kFlagCrc32Present) != 0) {
         crc ^= 0xFFFFFFFFU;
+
         if (crc != metadata.crc32) {
             return {ErrorCode::IntegrityFailure,
                     "Restored file checksum does not match."};
