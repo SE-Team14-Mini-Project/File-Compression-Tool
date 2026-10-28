@@ -56,7 +56,7 @@ HuffmanTree buildTree(const FrequencyTable& frequencies) {
 
         node->frequency = frequencies[i];
         node->symbol = i;
-        node->minSymbol = i;
+        node->minSymbol = static_cast<std::uint16_t>(i);
 
         pq.push(node);
     }
