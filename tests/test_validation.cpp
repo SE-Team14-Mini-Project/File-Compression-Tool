@@ -415,10 +415,16 @@ int main() {
                     ErrorCode::UnsafeOutputPath,
                 "multiple parent-directory components rejected");
 
-            expect(
-                validateOutputPath("/outside.txt").code ==
-                    ErrorCode::UnsafeOutputPath,
-                "rooted output path without a root name rejected");
+            // A POSIX absolute path is valid; do not reject it merely
+            // because it has a root directory but no root name.
+            const std::filesystem::path posixAbsolutePath =
+                std::filesystem::path("/outside.txt");
+
+            if (!posixAbsolutePath.has_root_name()) {
+                expect(
+                    validateOutputPath(posixAbsolutePath).ok(),
+                    "POSIX absolute output path without root name accepted");
+            }
         }
 
         // Clean up test artifacts.

@@ -7,13 +7,13 @@
 #include <string>
 
 #define TEST_CHECK(condition)                                      \
-    do {                                                           \
-        if (!(condition)) {                                        \
-            std::cerr << "Test failed: " #condition                \
-                      << " at " << __FILE__ << ":" << __LINE__     \
-                      << '\n';                                     \
-            std::exit(EXIT_FAILURE);                               \
-        }                                                          \
+    do {                                                            \
+        if (!(condition)) {                                         \
+            std::cerr << "Test failed: " #condition                 \
+                      << " at " << __FILE__ << ":" << __LINE__      \
+                      << '\n';                                      \
+            std::exit(EXIT_FAILURE);                                \
+        }                                                           \
     } while (false)
 
 int main() {
@@ -51,10 +51,13 @@ int main() {
     // Test 4: Binary bytes (0 and 255)
     std::string binaryData;
     binaryData.push_back(static_cast<char>(0));
-    binaryData.push_back(static_cast<char>(-1));
-    binaryData.push_back(static_cast<char>(-1));
+    binaryData.push_back(
+        static_cast<char>(static_cast<unsigned char>(255)));
+    binaryData.push_back(
+        static_cast<char>(static_cast<unsigned char>(255)));
 
-    std::istringstream binaryInput(binaryData);
+    std::istringstream binaryInput(
+        binaryData, std::ios::in | std::ios::binary);
     auto binaryFreq = team14::buildFrequencyTable(binaryInput);
 
     TEST_CHECK(binaryFreq[0] == 1);

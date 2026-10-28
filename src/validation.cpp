@@ -89,15 +89,6 @@ Result validateOutputPath(const fs::path& destination) {
                 "Output path must include a filename."};
     }
 
-    // Reject rooted paths without a root name, such as /outside.txt
-    // or, on Windows, \outside.txt.
-    // Valid absolute paths such as C:\folder\file.txt remain permitted.
-    if (destination.has_root_directory() &&
-        !destination.has_root_name()) {
-        return {ErrorCode::UnsafeOutputPath,
-                "Rooted output paths without a root name are not permitted."};
-    }
-
     // Reject parent-directory components.
     for (const auto& component : destination) {
         if (component == fs::path("..")) {
