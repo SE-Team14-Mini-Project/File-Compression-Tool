@@ -77,4 +77,27 @@ require_text("unknown_command" "${TEST_STDERR}"
 require_text("unknown_command" "${TEST_STDERR}"
     "huf decompress <archive> <output>")
 
-message(STATUS "All CLI help and usage tests passed.")
+# Actual operation failures must return non-zero exit codes.
+# Use a nonexistent input path so the test does not depend on external files.
+set(missing_input "${CMAKE_CURRENT_BINARY_DIR}/missing-input-for-fail-closed-test.bin")
+set(failed_archive "${CMAKE_CURRENT_BINARY_DIR}/failed-output-for-fail-closed-test.huf")
+set(missing_archive "${CMAKE_CURRENT_BINARY_DIR}/missing-archive-for-fail-closed-test.huf")
+set(failed_restored "${CMAKE_CURRENT_BINARY_DIR}/failed-restored-for-fail-closed-test.bin")
+
+file(REMOVE "${failed_archive}" "${failed_restored}")
+
+run_cli_test("compress_missing_input" 1 compress
+    "${missing_input}" "${failed_archive}")
+if(EXISTS "${failed_archive}")
+    message(FATAL_ERROR
+        "compress_missing_input: failed compression left an output archive")
+endif()
+
+run_cli_test("decompress_missing_archive" 1 decompress
+    "${missing_archive}" "${failed_restored}")
+if(EXISTS "${failed_restored}")
+    message(FATAL_ERROR
+        "decompress_missing_archive: failed decompression left an output file")
+endif()
+
+message(STATUS "All CLI help, usage, and fail-closed tests passed.")
