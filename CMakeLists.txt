@@ -88,6 +88,7 @@ if(BUILD_TESTING)
     team14_add_module_test(validation tests/test_validation.cpp)
     team14_add_module_test(security_logging tests/test_security_logging.cpp)
     team14_add_module_test(round_trip tests/test_round_trip.cpp)
+    team14_add_module_test(output_limits tests/test_output_limits.cpp)
 
     # CLI help test.
     add_test(

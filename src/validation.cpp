@@ -50,6 +50,10 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
         }
 
         total += frequency;
+        if (total > maxOutputBytes) {
+            return {ErrorCode::OutputLimitExceeded,
+                "Archive frequency total exceeds the maximum allowed output size."};
+        }
     }
 
     if (total != metadata.originalBytes) {
