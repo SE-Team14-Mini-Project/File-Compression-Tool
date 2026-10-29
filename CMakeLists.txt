@@ -82,6 +82,9 @@ if(BUILD_TESTING)
     endfunction()
 
     # Module tests.
+    team14_add_module_test(controller tests/test_controller.cpp)
+    team14_add_module_test(bit_io tests/test_bit_io.cpp)
+    team14_add_module_test(codec tests/test_codec.cpp)
     team14_add_module_test(frequency tests/test_frequency.cpp)
     team14_add_module_test(file_io tests/test_file_io.cpp)
     team14_add_module_test(archive tests/test_archive.cpp)
