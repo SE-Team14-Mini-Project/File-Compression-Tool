@@ -48,7 +48,9 @@ FrequencyTable buildFrequencyTable(std::istream& in) { FrequencyTable f{};char c
 HuffmanTree buildTree(const FrequencyTable& f) { auto n=std::make_shared<HuffmanNode>();n->frequency=f['A'];n->symbol='A';n->minSymbol='A';return n; }
 CodeTable generateCodes(const HuffmanTree&) {
     if(fault==Fault::CodesThrow) throw std::runtime_error("PRIVATE_EXCEPTION_CONTENT");
-    return {};
+    CodeTable codes{};
+    codes['A'] = {false};
+    return codes;
 }
 Result encode(std::istream& in,const CodeTable&,std::ostream& out,EncodedStats& stats) {
     observePublication();char c;std::uint64_t count=0;while(in.get(c))++count;
