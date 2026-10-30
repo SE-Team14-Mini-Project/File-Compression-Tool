@@ -298,6 +298,71 @@ int main() {
                 "single-symbol archive with incorrect bit count rejected");
         }
 
+        // --- Exact Huffman encoded-bit consistency tests. ---
+
+        {
+            ArchiveMetadata meta;
+
+            meta.originalBytes = 10;
+            meta.encodedBits = 15;
+
+            meta.frequencies['A'] = 5;
+            meta.frequencies['B'] = 3;
+            meta.frequencies['C'] = 2;
+
+            expect(
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).ok(),
+                "exact Huffman encoded bit count accepted");
+        }
+
+        {
+            ArchiveMetadata meta;
+
+            meta.originalBytes = 10;
+            meta.encodedBits = 14;
+
+            meta.frequencies['A'] = 5;
+            meta.frequencies['B'] = 3;
+            meta.frequencies['C'] = 2;
+
+            expect(
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "encoded bit count smaller than expected rejected");
+        }
+
+        {
+            ArchiveMetadata meta;
+
+            meta.originalBytes = 10;
+            meta.encodedBits = 16;
+
+            meta.frequencies['A'] = 5;
+            meta.frequencies['B'] = 3;
+            meta.frequencies['C'] = 2;
+
+            expect(
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).code ==
+                    ErrorCode::InvalidArchive,
+                "encoded bit count larger than expected rejected");
+        }
+
+        {
+            ArchiveMetadata meta;
+
+            meta.originalBytes = 10;
+            meta.encodedBits = 10;
+
+            meta.frequencies['A'] = 10;
+
+            expect(
+                validateArchiveMetadata(
+                    meta, kDefaultMaxOutputBytes).ok(),
+                "single-symbol exact encoded bit count accepted");
+        }
         // --- Decoded output integrity tests. ---
         const auto testDir =
             std::filesystem::temp_directory_path() /

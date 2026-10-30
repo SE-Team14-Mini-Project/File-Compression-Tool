@@ -20,7 +20,6 @@ namespace {
 
 int failures = 0;
 
-
 std::string sha256(const std::vector<unsigned char>& input) {
     static constexpr std::array<std::uint32_t, 64> K = {
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -55,6 +54,7 @@ std::string sha256(const std::vector<unsigned char>& input) {
         static_cast<std::uint64_t>(data.size()) * 8;
 
     data.push_back(0x80);
+
     while (data.size() % 64 != 56) {
         data.push_back(0);
     }
@@ -69,6 +69,7 @@ std::string sha256(const std::vector<unsigned char>& input) {
 
         for (std::size_t i = 0; i < 16; ++i) {
             const std::size_t p = offset + i * 4;
+
             W[i] =
                 (static_cast<std::uint32_t>(data[p]) << 24) |
                 (static_cast<std::uint32_t>(data[p + 1]) << 16) |
@@ -151,7 +152,6 @@ std::string sha256(const std::vector<unsigned char>& input) {
     return output.str();
 }
 
-
 void check(bool condition, const std::string& message) {
     if (condition) {
         std::cout << "[PASS] " << message << '\n';
@@ -161,9 +161,12 @@ void check(bool condition, const std::string& message) {
     }
 }
 
-bool writeBytes(const fs::path& path,
-                const std::vector<unsigned char>& bytes) {
+bool writeBytes(
+    const fs::path& path,
+    const std::vector<unsigned char>& bytes) {
+
     std::ofstream output(path, std::ios::binary);
+
     if (!output) {
         return false;
     }
@@ -186,9 +189,11 @@ std::vector<unsigned char> readBytes(const fs::path& path) {
         std::istreambuf_iterator<char>());
 }
 
-void testRoundTrip(const fs::path& directory,
-                   const std::string& name,
-                   const std::vector<unsigned char>& original) {
+void testRoundTrip(
+    const fs::path& directory,
+    const std::string& name,
+    const std::vector<unsigned char>& original) {
+
     const fs::path input = directory / (name + ".input");
     const fs::path archive = directory / (name + ".huf");
     const fs::path restored = directory / (name + ".restored");
@@ -223,16 +228,18 @@ void testRoundTrip(const fs::path& directory,
 
     const auto actual = readBytes(restored);
 
-    check(actual == original,
-      name + ": restored bytes match original");
+    check(
+        actual == original,
+        name + ": restored bytes match original");
 
-    check(sha256(original) == sha256(actual),
-      name + ": original and restored SHA-256 hashes match");
+    check(
+        sha256(original) == sha256(actual),
+        name + ": original and restored SHA-256 hashes match");
 
-    check(decompressionStats.originalBytes == original.size(),
-      name + ": restored byte count is correct");
+    check(
+        decompressionStats.originalBytes == original.size(),
+        name + ": restored byte count is correct");
 }
-
 
 void testInvalidArchives(const fs::path& directory) {
     const fs::path input = directory / "negative.input";
@@ -248,6 +255,7 @@ void testInvalidArchives(const fs::path& directory) {
 
     OperationStats compressionStats{};
     Result result = compressFile(input, archive, compressionStats);
+
     check(result.ok(), "negative tests: create valid archive");
 
     if (!result.ok()) {
@@ -265,15 +273,20 @@ void testInvalidArchives(const fs::path& directory) {
         const fs::path badArchive = directory / "truncated.huf";
         const fs::path badOutput = directory / "truncated.restored";
 
-        check(writeBytes(badArchive, truncated),
-              "truncated archive: write malformed input");
+        check(
+            writeBytes(badArchive, truncated),
+            "truncated archive: write malformed input");
 
         OperationStats stats{};
         result = decompressFile(badArchive, badOutput, stats);
 
-        check(!result.ok(), "truncated archive: decompression rejected");
-        check(!fs::exists(badOutput),
-              "truncated archive: no output published");
+        check(
+            !result.ok(),
+            "truncated archive: decompression rejected");
+
+        check(
+            !fs::exists(badOutput),
+            "truncated archive: no output published");
     }
 
     // Case 2: Append unexpected trailing data.
@@ -284,19 +297,25 @@ void testInvalidArchives(const fs::path& directory) {
         const fs::path badArchive = directory / "trailing.huf";
         const fs::path badOutput = directory / "trailing.restored";
 
-        check(writeBytes(badArchive, trailing),
-              "trailing data: write malformed input");
+        check(
+            writeBytes(badArchive, trailing),
+            "trailing data: write malformed input");
 
         OperationStats stats{};
         result = decompressFile(badArchive, badOutput, stats);
 
-        check(!result.ok(), "trailing data: decompression rejected");
-        check(!fs::exists(badOutput),
-              "trailing data: no output published");
+        check(
+            !result.ok(),
+            "trailing data: decompression rejected");
+
+        check(
+            !fs::exists(badOutput),
+            "trailing data: no output published");
     }
 
     // Case 3: Corrupt the last payload byte's padding bits.
-    // This case applies only when the archive has unused bits in its last byte.
+    // This case applies only when the archive has unused bits
+    // in its last byte.
     {
         ArchiveMetadata metadata{};
         std::ifstream archiveInput(archive, std::ios::binary);
@@ -306,48 +325,148 @@ void testInvalidArchives(const fs::path& directory) {
         if (result.ok() && metadata.encodedBits % 8 != 0) {
             const std::size_t payloadOffset =
                 validBytes.size() -
-                static_cast<std::size_t>((metadata.encodedBits + 7) / 8);
+                static_cast<std::size_t>(
+                    (metadata.encodedBits + 7) / 8);
 
             auto invalidPadding = validBytes;
-            const unsigned unusedBits =
-                8U - static_cast<unsigned>(metadata.encodedBits % 8);
 
-            invalidPadding.back() = static_cast<unsigned char>(
-                static_cast<unsigned char>(invalidPadding.back()) |
-                (1U << (unusedBits - 1)));
+            const unsigned unusedBits =
+                8U - static_cast<unsigned>(
+                    metadata.encodedBits % 8);
+
+            invalidPadding.back() =
+                static_cast<unsigned char>(
+                    static_cast<unsigned char>(
+                        invalidPadding.back()) |
+                    (1U << (unusedBits - 1)));
 
             const fs::path badArchive = directory / "padding.huf";
             const fs::path badOutput = directory / "padding.restored";
 
-            check(payloadOffset < invalidPadding.size(),
-                  "invalid padding: payload offset is valid");
+            check(
+                payloadOffset < invalidPadding.size(),
+                "invalid padding: payload offset is valid");
 
-            check(writeBytes(badArchive, invalidPadding),
-                  "invalid padding: write malformed input");
+            check(
+                writeBytes(badArchive, invalidPadding),
+                "invalid padding: write malformed input");
 
             OperationStats stats{};
             result = decompressFile(badArchive, badOutput, stats);
 
-            check(!result.ok(), "invalid padding: decompression rejected");
-            check(!fs::exists(badOutput),
-                  "invalid padding: no output published");
+            check(
+                !result.ok(),
+                "invalid padding: decompression rejected");
+
+            check(
+                !fs::exists(badOutput),
+                "invalid padding: no output published");
         } else {
             std::cout
                 << "[INFO] Padding test skipped: fixture has no unused bits.\n";
         }
     }
-}
 
+    // Case 4: Corrupt the encodedBits field in the archive header.
+    {
+        auto invalidBitCount = validBytes;
+
+        // HUF1 header layout:
+        // Bytes 0-3:   Magic
+        // Byte 4:      Version
+        // Byte 5:      Flags
+        // Bytes 6-7:   Reserved
+        // Bytes 8-15:  Original size
+        // Bytes 16-23: Encoded bit count
+
+        // Original input:
+        // A = 4, B = 3, C = 1
+        //
+        // Expected Huffman bit count:
+        // A: 4 * 1 = 4
+        // B: 3 * 2 = 6
+        // C: 1 * 2 = 2
+        //
+        // Total expected bits = 12.
+        //
+        // We change the encoded bit count to 13.
+
+        const std::uint64_t incorrectBits = 13;
+
+        for (unsigned int i = 0; i < 8; ++i) {
+            invalidBitCount[16 + i] =
+                static_cast<unsigned char>(
+                    (incorrectBits >> (i * 8)) & 0xFF);
+        }
+
+        const fs::path badArchive =
+            directory / "invalid_encoded_bits.huf";
+
+        const fs::path badOutput =
+            directory / "invalid_encoded_bits.restored";
+
+        check(
+            writeBytes(badArchive, invalidBitCount),
+            "encoded bits: write malformed archive");
+
+        OperationStats stats{};
+
+        result = decompressFile(badArchive, badOutput, stats);
+
+        check(
+            !result.ok(),
+            "encoded bits: decompression rejects inconsistent metadata");
+
+        check(
+            !fs::exists(badOutput),
+            "encoded bits: no output published");
+    }
+    // Case 5: Corrupt the CRC32 checksum in the archive header.
+    {
+        auto invalidChecksum = validBytes;
+
+        // HUF1 header:
+        // Bytes 24-27: CRC32 checksum.
+        //
+        // Change one checksum bit without modifying
+        // the compressed payload.
+
+        invalidChecksum[24] =
+            static_cast<unsigned char>(invalidChecksum[24] ^ 0x01);
+
+        const fs::path badArchive =
+            directory / "invalid_checksum.huf";
+
+        const fs::path badOutput =
+            directory / "invalid_checksum.restored";
+
+        check(
+            writeBytes(badArchive, invalidChecksum),
+            "CRC32: write archive with corrupted checksum");
+
+        OperationStats stats{};
+
+        result = decompressFile(badArchive, badOutput, stats);
+
+        check(
+            result.code == ErrorCode::IntegrityFailure,
+            "CRC32: decompression rejects checksum mismatch");
+
+        check(
+            !fs::exists(badOutput),
+            "CRC32: corrupted archive does not publish output");
+    }
+}
 
 } // namespace
 
 int main() {
-
     check(
-    sha256({'a', 'b', 'c'}) ==
-        "ba7816bf8f01cfea414140de5dae2223"
-        "b00361a396177a9cb410ff61f20015ad",
-    "SHA-256 matches the standard abc test vector");
+        sha256({'a', 'b', 'c'}) ==
+            "ba7816bf8f01cfea414140de5dae2223"
+            "b00361a396177a9cb410ff61f20015ad",
+        "SHA-256 matches the standard abc test vector");
+
     const auto stamp =
         std::chrono::steady_clock::now().time_since_epoch().count();
 
@@ -356,6 +475,7 @@ int main() {
         ("team14-round-trip-" + std::to_string(stamp));
 
     std::error_code error;
+
     if (!fs::create_directory(directory, error)) {
         std::cerr << "[FAIL] Cannot create test directory: "
                   << error.message() << '\n';
@@ -376,6 +496,7 @@ int main() {
         std::vector<unsigned char>(text.begin(), text.end()));
 
     std::vector<unsigned char> binary;
+
     for (unsigned int value = 0; value < 256; ++value) {
         binary.push_back(static_cast<unsigned char>(value));
     }
@@ -388,6 +509,7 @@ int main() {
     testInvalidArchives(directory);
 
     fs::remove_all(directory, error);
+
     if (error) {
         std::cerr << "[WARN] Could not clean up test directory: "
                   << error.message() << '\n';

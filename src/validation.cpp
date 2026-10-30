@@ -75,10 +75,53 @@ Result validateArchiveMetadata(const ArchiveMetadata& metadata,
                 "Non-empty archive has invalid size metadata."};
     }
 
-    if (symbolCount == 1 &&
-        metadata.encodedBits != metadata.originalBytes) {
+    // Validate the exact encoded bit count using the Huffman tree
+    // reconstructed from the archive's frequency table.
+    const HuffmanTree tree = buildTree(metadata.frequencies);
+    const CodeTable codes = generateCodes(tree);
+
+    std::uint64_t expectedBits = 0;
+
+    for (std::size_t symbol = 0;
+         symbol < metadata.frequencies.size();
+         ++symbol) {
+
+        const std::uint64_t frequency = metadata.frequencies[symbol];
+
+        if (frequency == 0) {
+            continue;
+        }
+
+        const std::uint64_t codeLength =
+            static_cast<std::uint64_t>(codes[symbol].size());
+
+        if (codeLength == 0) {
+            return {ErrorCode::InvalidArchive,
+                    "Huffman code is missing for a stored symbol."};
+        }
+
+        // Check multiplication overflow.
+        if (frequency >
+            std::numeric_limits<std::uint64_t>::max() / codeLength) {
+            return {ErrorCode::InvalidArchive,
+                    "Expected encoded bit count overflows."};
+        }
+
+        const std::uint64_t symbolBits = frequency * codeLength;
+
+        // Check addition overflow.
+        if (symbolBits >
+            std::numeric_limits<std::uint64_t>::max() - expectedBits) {
+            return {ErrorCode::InvalidArchive,
+                    "Expected encoded bit count overflows."};
+        }
+
+        expectedBits += symbolBits;
+    }
+
+    if (expectedBits != metadata.encodedBits) {
         return {ErrorCode::InvalidArchive,
-                "Invalid bit count for a single-symbol archive."};
+                "Encoded bit count does not match Huffman frequencies."};
     }
 
     return {};
