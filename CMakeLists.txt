@@ -81,6 +81,20 @@ if(BUILD_TESTING)
         )
     endfunction()
 
+    # Fault-injection fixture links real publication/validation code with a
+    # test-only codec, keeping failure controls out of the production binary.
+    add_executable(team14_test_output_publication_faults
+        tests/test_output_publication_faults.cpp
+        src/controller.cpp src/archive.cpp src/file_io.cpp src/validation.cpp)
+    target_include_directories(team14_test_output_publication_faults PRIVATE include)
+    team14_enable_warnings(team14_test_output_publication_faults)
+    set(publication_work "${CMAKE_CURRENT_BINARY_DIR}/test-work/output_publication_faults")
+    file(MAKE_DIRECTORY "${publication_work}")
+    add_test(NAME team14.output_publication_faults COMMAND team14_test_output_publication_faults)
+    set_tests_properties(team14.output_publication_faults PROPERTIES
+        WORKING_DIRECTORY "${publication_work}"
+        ENVIRONMENT "TMPDIR=${publication_work};TMP=${publication_work};TEMP=${publication_work}")
+
     # Module tests.
     team14_add_module_test(controller tests/test_controller.cpp)
     team14_add_module_test(bit_io tests/test_bit_io.cpp)

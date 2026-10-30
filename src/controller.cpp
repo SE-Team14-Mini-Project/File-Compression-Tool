@@ -102,7 +102,7 @@ std::uint32_t calculateCrc32(std::istream& input) {
 
 Result compressFile(const fs::path& inputPath,
                     const fs::path& archivePath,
-                    OperationStats& stats) {
+                    OperationStats& stats) try {
     stats = OperationStats{};
 
     Result result = validateInputFile(inputPath);
@@ -257,11 +257,16 @@ Result compressFile(const fs::path& inputPath,
     }
 
     return {};
+} catch (const std::exception&) {
+    // Stack unwinding has already removed any scoped temporary output.
+    // Never expose exception text that could contain user data.
+    stats = OperationStats{};
+    return {ErrorCode::IoError, "Compression failed before completion."};
 }
 
 Result decompressFile(const fs::path& archivePath,
                       const fs::path& outputPath,
-                      OperationStats& stats) {
+                      OperationStats& stats) try {
     stats = OperationStats{};
 
     Result result = validateInputFile(archivePath);
@@ -373,6 +378,9 @@ Result decompressFile(const fs::path& archivePath,
     }
 
     return {};
+} catch (const std::exception&) {
+    stats = OperationStats{};
+    return {ErrorCode::IoError, "Decompression failed before completion."};
 }
 
 Result getArchiveInfo(const fs::path& archivePath,
