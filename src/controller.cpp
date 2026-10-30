@@ -386,28 +386,39 @@ Result decompressFile(const fs::path& archivePath,
 Result getArchiveInfo(const fs::path& archivePath,
                       ArchiveMetadata& metadata) {
     metadata = ArchiveMetadata{};
-
     Result result = validateInputFile(archivePath);
-    if (!result.ok()) {
-        return result;
-    }
+    if (!result.ok()) return result;
 
     std::ifstream input(archivePath, std::ios::binary);
     if (!input.is_open()) {
-        return {ErrorCode::IoError,
-                "Could not open archive for reading."};
+        return {ErrorCode::IoError, "Could not open archive for reading."};
     }
 
-    result = readArchiveHeader(input, metadata);
-    if (!result.ok()) {
-        return result;
+    // Publish metadata only after all checks succeed. Info never decodes or
+    // allocates the declared original size, so the decoding limit is not used.
+    ArchiveMetadata parsed{};
+    result = readArchiveHeader(input, parsed);
+    if (!result.ok()) return result;
+    result = validateArchiveMetadata(parsed,
+                                    std::numeric_limits<std::uint64_t>::max());
+    if (!result.ok()) return result;
+
+    const auto payloadStart = input.tellg();
+    input.seekg(0, std::ios::end);
+    const auto archiveEnd = input.tellg();
+    if (!input || payloadStart < std::streampos(0) || archiveEnd < payloadStart) {
+        return {ErrorCode::IoError, "Could not inspect archive length."};
+    }
+    const std::uint64_t payloadBytes =
+        parsed.encodedBits / 8 + (parsed.encodedBits % 8 != 0);
+    if (static_cast<std::uint64_t>(archiveEnd - payloadStart) != payloadBytes) {
+        return {ErrorCode::InvalidArchive,
+                "Archive length does not match its declared payload."};
     }
 
-    result = validateArchiveMetadata(metadata, kDefaultMaxOutputBytes);
-    if (!result.ok()) {
-        return result;
-    }
-
+    // Matching lengths are not proof of valid Huffman data or checksum.
+    // Full bitstream and CRC verification belongs to decompression.
+    metadata = parsed;
     return {};
 }
 

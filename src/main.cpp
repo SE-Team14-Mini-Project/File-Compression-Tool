@@ -1,6 +1,8 @@
 #include "interfaces.h"
 
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 namespace {
@@ -26,6 +28,50 @@ void printOperationError(const std::string& operation,
     }
 
     std::cerr << '\n';
+}
+
+std::string hexadecimal(std::uint64_t value, int width) {
+    std::ostringstream output;
+    output << "0x" << std::hex << std::uppercase << std::setw(width)
+           << std::setfill('0') << value;
+    return output.str();
+}
+
+void printArchiveInfo(const team14::ArchiveMetadata& metadata) {
+    std::uint64_t symbols = 0;
+    for (const auto frequency : metadata.frequencies) {
+        if (frequency != 0) ++symbols;
+    }
+    const std::uint64_t headerBytes = 30 + 9 * symbols;
+    const std::uint64_t payloadBytes =
+        metadata.encodedBits / 8 + (metadata.encodedBits % 8 != 0);
+    std::cout << "Archive magic: HUF1\n"
+              << "Archive version: " << static_cast<unsigned>(metadata.version) << '\n'
+              << "Flags: " << hexadecimal(metadata.flags, 2) << '\n'
+              << "Original filename: not stored in version 1\n"
+              << "Original size: " << metadata.originalBytes << " bytes\n"
+              << "Archive size: " << headerBytes + payloadBytes << " bytes\n"
+              << "Header size: " << headerBytes << " bytes\n"
+              << "Payload size: " << payloadBytes << " bytes\n"
+              << "Encoded bits: " << metadata.encodedBits << '\n'
+              << "Symbol count: " << symbols << '\n';
+    if ((metadata.flags & team14::kFlagCrc32Present) != 0) {
+        std::cout << "CRC32: present, stored value "
+                  << hexadecimal(metadata.crc32, 8)
+                  << " (not verified by info)\n";
+    } else {
+        std::cout << "CRC32: absent (checksum not available)\n";
+    }
+    std::cout << "Integrity: not verified (metadata inspection only)\n"
+              << "Tree metadata (byte=frequency):";
+    if (symbols == 0) std::cout << " none";
+    for (unsigned symbol = 0; symbol < metadata.frequencies.size(); ++symbol) {
+        if (metadata.frequencies[symbol] != 0) {
+            std::cout << ' ' << hexadecimal(symbol, 2) << '='
+                      << metadata.frequencies[symbol];
+        }
+    }
+    std::cout << '\n';
 }
 
 } // namespace
@@ -117,15 +163,7 @@ int main(int argc, char* argv[]) {
             return kExitFailure;
         }
 
-        std::cout << "Archive version: "
-                  << static_cast<int>(metadata.version) << '\n'
-                  << "Original size: " << metadata.originalBytes << " bytes\n"
-                  << "Encoded bits: " << metadata.encodedBits << '\n'
-                  << "CRC32: "
-                  << ((metadata.flags & kFlagCrc32Present)
-                          ? "present"
-                          : "absent")
-                  << '\n';
+        printArchiveInfo(metadata);
         return kExitSuccess;
     }
 

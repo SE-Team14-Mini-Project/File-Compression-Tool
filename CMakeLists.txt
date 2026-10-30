@@ -102,6 +102,11 @@ if(BUILD_TESTING)
     team14_add_module_test(frequency tests/test_frequency.cpp)
     team14_add_module_test(file_io tests/test_file_io.cpp)
     team14_add_module_test(archive tests/test_archive.cpp)
+    team14_add_module_test(archive_info tests/test_archive_info.cpp)
+    add_test(NAME team14.archive_info_cli
+        COMMAND ${CMAKE_COMMAND}
+            "-DHUF_EXECUTABLE=$<TARGET_FILE:huf>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_archive_info_cli.cmake")
     team14_add_module_test(validation tests/test_validation.cpp)
     team14_add_module_test(security_logging tests/test_security_logging.cpp)
     team14_add_module_test(round_trip tests/test_round_trip.cpp)
