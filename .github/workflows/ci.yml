@@ -1,20 +1,26 @@
-name: C++ CI
+name: C++17 CMake Build and Test
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  check-interfaces:
+  build-and-test:
+    name: Build and run CTest
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - name: Compile shared header
-        run: |
-          printf '#include "interfaces.h"\nint main() { return 0; }\n' > /tmp/check_interfaces.cpp
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -fsyntax-only -Iinclude /tmp/check_interfaces.cpp
+      - name: Configure CMake
+        run: cmake -S . -B build -DBUILD_TESTING=ON -DCMAKE_CXX_STANDARD=17
+
+      - name: Build complete project
+        run: cmake --build build --parallel 2
+
+      - name: Run all CTest tests
+        run: ctest --test-dir build --output-on-failure
