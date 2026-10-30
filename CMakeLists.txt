@@ -101,6 +101,24 @@ if(BUILD_TESTING)
     team14_add_module_test(codec tests/test_codec.cpp)
     team14_add_module_test(frequency tests/test_frequency.cpp)
     team14_add_module_test(file_io tests/test_file_io.cpp)
+    team14_add_module_test(overwrite_cleanup tests/test_overwrite_cleanup.cpp)
+    # This fixture substitutes only the codec to create deterministic collisions
+    # after preflight; no test hooks are compiled into team14_core or huf.
+    add_executable(team14_test_no_overwrite_races
+        tests/test_no_overwrite_races.cpp
+        src/controller.cpp src/archive.cpp src/file_io.cpp src/validation.cpp)
+    target_include_directories(team14_test_no_overwrite_races PRIVATE include)
+    team14_enable_warnings(team14_test_no_overwrite_races)
+    set(overwrite_race_work "${CMAKE_CURRENT_BINARY_DIR}/test-work/no_overwrite_races")
+    file(MAKE_DIRECTORY "${overwrite_race_work}")
+    add_test(NAME team14.no_overwrite_races COMMAND team14_test_no_overwrite_races)
+    set_tests_properties(team14.no_overwrite_races PROPERTIES
+        WORKING_DIRECTORY "${overwrite_race_work}"
+        ENVIRONMENT "TMPDIR=${overwrite_race_work};TMP=${overwrite_race_work};TEMP=${overwrite_race_work}")
+    add_test(NAME team14.overwrite_cli
+        COMMAND ${CMAKE_COMMAND}
+            "-DHUF_EXECUTABLE=$<TARGET_FILE:huf>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_overwrite_cli.cmake")
     team14_add_module_test(archive tests/test_archive.cpp)
     team14_add_module_test(archive_info tests/test_archive_info.cpp)
     add_test(NAME team14.archive_info_cli
