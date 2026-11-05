@@ -101,6 +101,17 @@ if(BUILD_TESTING)
     team14_add_module_test(codec tests/test_codec.cpp)
     team14_add_module_test(frequency tests/test_frequency.cpp)
     team14_add_module_test(file_io tests/test_file_io.cpp)
+    # Compile file_io.cpp in an isolated fixture with test-only filesystem
+    # substitutions. No fault injection is linked into team14_core or huf.
+    add_executable(team14_test_file_io_faults tests/test_file_io_faults.cpp)
+    target_include_directories(team14_test_file_io_faults PRIVATE include)
+    team14_enable_warnings(team14_test_file_io_faults)
+    set(file_io_faults_work "${CMAKE_CURRENT_BINARY_DIR}/test-work/file_io_faults")
+    file(MAKE_DIRECTORY "${file_io_faults_work}")
+    add_test(NAME team14.file_io_faults COMMAND team14_test_file_io_faults)
+    set_tests_properties(team14.file_io_faults PROPERTIES
+        WORKING_DIRECTORY "${file_io_faults_work}"
+        ENVIRONMENT "TMPDIR=${file_io_faults_work};TMP=${file_io_faults_work};TEMP=${file_io_faults_work}")
     team14_add_module_test(overwrite_cleanup tests/test_overwrite_cleanup.cpp)
     # This fixture substitutes only the codec to create deterministic collisions
     # after preflight; no test hooks are compiled into team14_core or huf.

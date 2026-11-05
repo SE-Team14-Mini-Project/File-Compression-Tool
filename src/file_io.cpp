@@ -7,7 +7,12 @@
 
 namespace team14 {
 namespace {
-namespace fs = std::filesystem;
+// The test fixture substitutes filesystem operations at compile time to exercise
+// rare errors deterministically; production always uses std::filesystem.
+#ifndef TEAM14_FILE_IO_FILESYSTEM
+#define TEAM14_FILE_IO_FILESYSTEM std::filesystem
+#endif
+namespace fs = TEAM14_FILE_IO_FILESYSTEM;
 
 Result accessError(const std::error_code& error, const char* message) {
     return {error == std::errc::permission_denied ? ErrorCode::PermissionDenied
