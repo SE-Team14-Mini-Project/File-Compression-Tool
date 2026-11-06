@@ -11,7 +11,19 @@
 namespace fs = std::filesystem;
 using namespace team14;
 namespace {
-enum class Fault { None, CodesThrow, EncodeError, EncodeThrow, EncodeWriteFailure, DecodeError, DecodeThrow, DecodeWriteFailure, DecodeShort, DecodeWrongCrc };
+enum class Fault {
+    None,
+    CodesThrow,
+    TreeThrow,
+    EncodeError,
+    EncodeThrow,
+    EncodeWriteFailure,
+    DecodeError,
+    DecodeThrow,
+    DecodeWriteFailure,
+    DecodeShort,
+    DecodeWrongCrc
+};
 Fault fault = Fault::None;
 fs::path destination;
 bool visibilityViolation = false;
@@ -45,7 +57,17 @@ std::string fixture(bool crc=true) {
 }
 namespace team14 {
 FrequencyTable buildFrequencyTable(std::istream& in) { FrequencyTable f{};char c;while(in.get(c))++f[static_cast<unsigned char>(c)];return f; }
-HuffmanTree buildTree(const FrequencyTable& f) { auto n=std::make_shared<HuffmanNode>();n->frequency=f['A'];n->symbol='A';n->minSymbol='A';return n; }
+HuffmanTree buildTree(const FrequencyTable& f) {
+    if (fault == Fault::TreeThrow) {
+        throw std::runtime_error("PRIVATE_TREE_EXCEPTION_CONTENT");
+    }
+
+    auto n = std::make_shared<HuffmanNode>();
+    n->frequency = f['A'];
+    n->symbol = 'A';
+    n->minSymbol = 'A';
+    return n;
+}
 CodeTable generateCodes(const HuffmanTree&) {
     if(fault==Fault::CodesThrow) throw std::runtime_error("PRIVATE_EXCEPTION_CONTENT");
     CodeTable codes{};
@@ -79,22 +101,39 @@ int main() {
     try {
         fs::create_directory(root);const auto source=root/"source.bin";save(source,std::string(10,'A'));
         destination=root/"out.huf";
-        for(auto mode:{Fault::CodesThrow,Fault::EncodeError,Fault::EncodeThrow,Fault::EncodeWriteFailure,Fault::None}) {
+        for (auto mode : {
+            Fault::CodesThrow, Fault::TreeThrow, Fault::EncodeError,
+            Fault::EncodeThrow, Fault::EncodeWriteFailure, Fault::None
+        }) {
             fault=mode;visibilityViolation=false;callbackVisits=0;OperationStats stats{999,888};
             Result r;
             try {r=compressFile(source,destination,stats);} catch(...) {check(false,"compression exceptions must be converted to Result");}
             check(load(source)==std::string(10,'A'),"source preserved");check(!visibilityViolation,"archive stays unpublished during encoding");
             check(r.message.find("PRIVATE_EXCEPTION_CONTENT")==std::string::npos,"exception details not disclosed");
+                check(r.message.find("PRIVATE_TREE_EXCEPTION_CONTENT") == std::string::npos,
+                      "tree exception details not disclosed");
             if(mode==Fault::None){check(r.ok() && fs::exists(destination),"successful archive published");check(callbackVisits==1,"encoding callback observed");fs::remove(destination);}
             else {check(!r.ok() && !fs::exists(destination),"failed compression has no final output");check(stats.originalBytes==0 && stats.archiveBytes==0,"failed compression stats reset");}
             noTemporaryFiles(root);
         }
         const auto archive=root/"input.huf";const auto golden=fixture();save(archive,golden);destination=root/"restored.bin";
-        for(auto mode:{Fault::DecodeError,Fault::DecodeThrow,Fault::DecodeWriteFailure,Fault::DecodeShort,Fault::DecodeWrongCrc,Fault::None}) {
+        for (auto mode : {
+            Fault::TreeThrow, Fault::DecodeError, Fault::DecodeThrow,
+            Fault::DecodeWriteFailure, Fault::DecodeShort,
+            Fault::DecodeWrongCrc, Fault::None
+        }) {
             fault=mode;visibilityViolation=false;callbackVisits=0;OperationStats stats{999,888};Result r;
             try {r=decompressFile(archive,destination,stats);} catch(...) {check(false,"decompression exceptions must be converted to Result");}
-            check(callbackVisits==1 && !visibilityViolation,"restored output stays unpublished during decoding");
+            if (mode == Fault::TreeThrow) {
+                check(callbackVisits == 0,
+                      "decoder is not called when tree construction fails");
+            } else {
+                check(callbackVisits == 1 && !visibilityViolation,
+                      "restored output stays unpublished during decoding");
+            }
             check(load(archive)==golden,"archive input preserved");check(r.message.find("PRIVATE_EXCEPTION_CONTENT")==std::string::npos,"decode exception details not disclosed");
+                check(r.message.find("PRIVATE_TREE_EXCEPTION_CONTENT") == std::string::npos,
+                      "tree exception details not disclosed");
             if(mode==Fault::None){check(r.ok() && load(destination)==std::string(10,'A'),"verified restored output published");fs::remove(destination);}
             else {check(!r.ok() && !fs::exists(destination),"failed decoding/size/CRC verification never publishes");check(stats.originalBytes==0 && stats.archiveBytes==0,"failed decode stats reset");}
             if(mode==Fault::DecodeShort || mode==Fault::DecodeWrongCrc) {

@@ -1,10 +1,52 @@
-Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-archive.cpp                       181                 4    97.79%           7                 0   100.00%         165                 4    97.58%         126                12    90.48%
-controller.cpp                    175                38    78.29%           8                 0   100.00%         298                71    76.17%         110                37    66.36%
-file_io.cpp                        97                11    88.66%           6                 0   100.00%         115                15    86.96%          80                20    75.00%
-huffman.cpp                       115                12    89.57%           7                 0   100.00%         181                22    87.85%          80                14    82.50%
-main.cpp                           60                 4    93.33%           5                 0   100.00%         133                 6    95.49%          42                 5    88.10%
-validation.cpp                    119                 9    92.44%           3                 0   100.00%         162                24    85.19%          90                16    82.22%
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-TOTAL                             747                78    89.56%          36                 0   100.00%        1054               142    86.53%         528               104    80.30%
+Production Code Coverage Summary
+Project: Team 14 - File Compression Tool
+Date: 4 November 2026
+Test execution: 17 passed, 0 failed
+Tool: LLVM llvm-cov
+
+Overall metrics:
+Lines:     935 / 1054  (88.71%)
+Regions:   681 / 747   (91.16%)
+Functions: 36 / 36     (100.00%)
+Branches:  436 / 528   (82.58%)
+
+Module-wise coverage:
+archive.cpp
+  Lines:     161 / 165 (97.58%)
+  Regions:   177 / 181 (97.79%)
+  Functions: 7 / 7 (100.00%)
+  Branches:  114 / 126 (90.48%)
+
+controller.cpp
+  Lines:     244 / 298 (81.88%)
+  Regions:   146 / 175 (83.43%)
+  Functions: 8 / 8 (100.00%)
+  Branches:  80 / 110 (72.73%)
+
+file_io.cpp
+  Lines:     100 / 115 (86.96%)
+  Regions:   86 / 97 (88.66%)
+  Functions: 6 / 6 (100.00%)
+  Branches:  60 / 80 (75.00%)
+
+huffman.cpp
+  Lines:     159 / 181 (87.85%)
+  Regions:   103 / 115 (89.57%)
+  Functions: 7 / 7 (100.00%)
+  Branches:  66 / 80 (82.50%)
+
+main.cpp
+  Lines:     130 / 133 (97.74%)
+  Regions:   57 / 60 (95.00%)
+  Functions: 5 / 5 (100.00%)
+  Branches:  38 / 42 (90.48%)
+
+validation.cpp
+  Lines:     141 / 162 (87.04%)
+  Regions:   112 / 119 (94.12%)
+  Functions: 3 / 3 (100.00%)
+  Branches:  78 / 90 (86.67%)
+
+Tooling note:
+LLVM emitted the warning "1 functions have mismatched data" during coverage reporting.
+This warning is retained as a tooling limitation.
