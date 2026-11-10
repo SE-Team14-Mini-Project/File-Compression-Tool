@@ -31,7 +31,7 @@ reflects available test evidence and the latest CTest execution.
 | TC-03 | Huffman tree and code generation | FR-CMP-03 | Test Huffman construction and encoding behaviour, including single-symbol and multiple-symbol inputs. | test_codec.cpp | PASS |
 | TC-04 | Bitstream encoding and decoding | FR-CMP-04 | Test bit packing, reading and decoding, including partial final bytes and padding behaviour. | test_bit_io.cpp, test_codec.cpp, test_round_trip.cpp | PASS |
 | TC-05 | Archive metadata and information | FR-CMP-05, FR-INFO-01 | Run huf info on valid archives. Verify HUF1 version, flags, sizes, header and payload lengths, encoded bits, symbol count and frequency pairs. The command must not invent a filename because v1 stores none. | test_archive_info.cpp, test_archive_info_cli.cmake | PASS |
-| TC-06 | Compression statistics | FR-CMP-06 | Verify original size, archive size and compression statistics for representative inputs. Check that empty input does not cause divide-by-zero. | Controller and archive information tests; no separate complete statistics acceptance evidence recorded. | PARTIAL |
+| TC-06 | Compression statistics | FR-CMP-06 | Verify original size, archive size and compression ratio for empty, single-byte, text and binary inputs. Confirm no division-by-zero error. | Four local CLI acceptance checks: actual file sizes and reported ratios verified; round-trip comparison passed. | PASS |
 | TC-07 | Lossless round trip | FR-CMP-07, FR-DEC-02 | Compress and decompress empty, one-byte, text and binary files. Compare restored bytes and SHA-256 hashes with the original. | test_round_trip.cpp | PASS |
 | TC-08 | Malformed and tampered archive rejection | FR-DEC-01, FR-DEC-03, FR-ERR-01, security | Test invalid headers, truncated archives, invalid padding and trailing bytes. Decompression must fail and must not publish invalid output. Also verify CRC32 rejection by corrupting the stored checksum. | test_archive.cpp, test_round_trip.cpp, test_validation.cpp; manual CRC32 corruption test: mismatch detected, no output published | PASS |
 | TC-09 | Output path and overwrite safety | FR-DEC-04, FR-OUT-01, safe output handling | Test existing destinations, overwrite rules, invalid output paths, cleanup and publication failures. Version 1 contains no archive filename or extraction path, so archive-based path traversal is not applicable. | test_file_io.cpp, test_file_io_faults.cpp, test_overwrite_cleanup.cpp, test_no_overwrite_races.cpp, test_overwrite_cli.cmake, test_output_publication_faults.cpp | PASS |
@@ -83,7 +83,7 @@ The latest production-only LLVM coverage results are:
 
 Outstanding or limited verification:
 
-1. TC-06: Complete compression-statistics acceptance evidence is not independently recorded.
+1. TC-06: Compression statistics verified using four local CLI acceptance checks.
 2. TC-08: CRC32 corruption detection was verified manually; this does not replace exhaustive archive-integrity testing.
 3. TC-10: The 5-second target was met in one local 10 MiB benchmark; performance varies by machine and data.
 4. Platform-dependent permission and symlink tests may be skipped when the
