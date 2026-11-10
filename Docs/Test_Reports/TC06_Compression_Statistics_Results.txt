@@ -1,0 +1,4 @@
+PASS empty: input=0, archive=30, ratio=0.0
+PASS single_byte: input=1, archive=40, ratio=0.025
+PASS text: input=2900, archive=1621, ratio=1.78902
+PASS binary: input=5120, archive=7454, ratio=0.68688
