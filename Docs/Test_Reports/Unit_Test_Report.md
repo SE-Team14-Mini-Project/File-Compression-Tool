@@ -1,7 +1,7 @@
 # Unit Test Report
 
 **Project:** Team 14 - File Compression Tool
-**Date:** 4 November 2026
+**Date:** 10 November 2026
 **Test Framework:** CTest
 **Build System:** CMake
 
@@ -19,8 +19,8 @@ Verify individual modules and important failure-handling paths through automated
 
 | Result | Count |
 |---|---:|
-| Tests executed | 17 |
-| Passed | 17 |
+| Tests executed | 19 |
+| Passed | 19 |
 | Failed | 0 |
 | Pass rate | 100% |
 
@@ -28,27 +28,31 @@ Verify individual modules and important failure-handling paths through automated
 
 | No. | Test case | Result |
 |---:|---|---|
-| 1 | Output publication faults | PASS |
-| 2 | Controller | PASS |
-| 3 | Bit I/O | PASS |
-| 4 | Codec | PASS |
-| 5 | Frequency analysis | PASS |
-| 6 | File I/O | PASS |
-| 7 | Overwrite cleanup | PASS |
-| 8 | No-overwrite races | PASS |
-| 9 | Overwrite CLI | PASS |
-| 10 | Archive | PASS |
-| 11 | Archive information | PASS |
-| 12 | Archive information CLI | PASS |
-| 13 | Validation | PASS |
-| 14 | Security logging | PASS |
-| 15 | Round trip | PASS |
-| 16 | Output limits | PASS |
-| 17 | CLI help | PASS |
+| 1 | team14.output_publication_faults | PASS |
+| 2 | team14.controller | PASS |
+| 3 | team14.bit_io | PASS |
+| 4 | team14.codec | PASS |
+| 5 | team14.huffman_faults | PASS |
+| 6 | team14.frequency | PASS |
+| 7 | team14.file_io | PASS |
+| 8 | team14.file_io_faults | PASS |
+| 9 | team14.overwrite_cleanup | PASS |
+| 10 | team14.no_overwrite_races | PASS |
+| 11 | team14.overwrite_cli | PASS |
+| 12 | team14.archive | PASS |
+| 13 | team14.archive_info | PASS |
+| 14 | team14.archive_info_cli | PASS |
+| 15 | team14.validation | PASS |
+| 16 | team14.security_logging | PASS |
+| 17 | team14.round_trip | PASS |
+| 18 | team14.output_limits | PASS |
+| 19 | team14.cli_help | PASS |
 
 ## 5. Important Test Scenarios
 
 - Frequency analysis and Huffman coding.
+- 12 Huffman error-handling fault checks.
+- 23 file I/O fault-injection checks.
 - Bit-level input and output operations.
 - Archive creation and archive information retrieval.
 - Compression and decompression round trips.
@@ -61,7 +65,7 @@ Verify individual modules and important failure-handling paths through automated
 
 ## 6. Result
 
-All 17 registered CTest tests passed in the recorded execution. No test failures were reported.
+All 19 registered CTest tests passed in the recorded execution. No test failures were reported.
 
 ## 7. Conclusion
 

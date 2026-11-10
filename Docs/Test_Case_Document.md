@@ -2,7 +2,7 @@
 
 **Project:** Huffman File Compression Tool
 **Version:** 1.0
-**Updated:** 4 November 2026
+**Updated:** 10 November 2026
 **Sprint:** Part 3 — Testing and Validation
 
 ## 1. Objective
@@ -20,7 +20,7 @@ reflects available test evidence and the latest CTest execution.
 - Test framework: CTest
 - Coverage tooling: LLVM llvm-cov and llvm-profdata
 - Platform used: macOS
-- Latest recorded execution: 17 tests passed, 0 failed.
+- Latest recorded execution: 19 tests passed, 0 failed.
 
 ## 3. Updated test cases
 
@@ -33,9 +33,9 @@ reflects available test evidence and the latest CTest execution.
 | TC-05 | Archive metadata and information | FR-CMP-05, FR-INFO-01 | Run huf info on valid archives. Verify HUF1 version, flags, sizes, header and payload lengths, encoded bits, symbol count and frequency pairs. The command must not invent a filename because v1 stores none. | test_archive_info.cpp, test_archive_info_cli.cmake | PASS |
 | TC-06 | Compression statistics | FR-CMP-06 | Verify original size, archive size and compression statistics for representative inputs. Check that empty input does not cause divide-by-zero. | Controller and archive information tests; no separate complete statistics acceptance evidence recorded. | PARTIAL |
 | TC-07 | Lossless round trip | FR-CMP-07, FR-DEC-02 | Compress and decompress empty, one-byte, text and binary files. Compare restored bytes and SHA-256 hashes with the original. | test_round_trip.cpp | PASS |
-| TC-08 | Malformed and tampered archive rejection | FR-DEC-01, FR-DEC-03, FR-ERR-01, security | Test invalid headers, truncated archives, invalid padding and trailing bytes. Decompression must fail and must not publish invalid output. CRC field transport alone is not CRC integrity verification. | test_archive.cpp, test_round_trip.cpp, test_validation.cpp | PARTIAL |
-| TC-09 | Output path and overwrite safety | FR-DEC-04, FR-OUT-01, safe output handling | Test existing destinations, overwrite rules, invalid output paths, cleanup and publication failures. Version 1 contains no archive filename or extraction path, so archive-based path traversal is not applicable. | test_file_io.cpp, test_overwrite_cleanup.cpp, test_no_overwrite_races.cpp, test_overwrite_cli.cmake, test_output_publication_faults.cpp | PASS |
-| TC-10 | 10 MB performance | NFR-PERF-01 | Compress and decompress the 10 MB reference file. Record timings and verify restored bytes. The planned target is at most 5 seconds per operation. | No measured acceptance result recorded. | NOT VERIFIED |
+| TC-08 | Malformed and tampered archive rejection | FR-DEC-01, FR-DEC-03, FR-ERR-01, security | Test invalid headers, truncated archives, invalid padding and trailing bytes. Decompression must fail and must not publish invalid output. Also verify CRC32 rejection by corrupting the stored checksum. | test_archive.cpp, test_round_trip.cpp, test_validation.cpp; manual CRC32 corruption test: mismatch detected, no output published | PASS |
+| TC-09 | Output path and overwrite safety | FR-DEC-04, FR-OUT-01, safe output handling | Test existing destinations, overwrite rules, invalid output paths, cleanup and publication failures. Version 1 contains no archive filename or extraction path, so archive-based path traversal is not applicable. | test_file_io.cpp, test_file_io_faults.cpp, test_overwrite_cleanup.cpp, test_no_overwrite_races.cpp, test_overwrite_cli.cmake, test_output_publication_faults.cpp | PASS |
+| TC-10 | 10 MB performance | NFR-PERF-01 | Compress and decompress the 10 MB reference file. Record timings and verify restored bytes. The planned target is at most 5 seconds per operation. | Local macOS 10 MiB binary test: 2.96 s compression, 3.56 s decompression; byte comparison PASS. | PASS |
 
 ## 4. Additional Sprint 2 regression and validation tests
 
@@ -54,12 +54,17 @@ reflects available test evidence and the latest CTest execution.
 | CLI behaviour | test_cli.cmake | Verify command-line interface behaviour and error handling. |
 | Validation | test_validation.cpp | Reject invalid archive metadata and inputs. |
 
-## 5. Execution summary
+## 5. Additional Part 3 Tests
+
+- `test_huffman_faults.cpp`: 12 fault checks.
+- `test_file_io_faults.cpp`: 23 fault checks.
+
+## 6. Execution summary
 
 Latest recorded CTest execution:
 
-- Registered tests: 17
-- Passed: 17
+- Registered tests: 19
+- Passed: 19
 - Failed: 0
 - Result: 100% of registered CTest tests passed.
 
@@ -67,30 +72,26 @@ This result applies to the registered automated test suite. It does not
 mean every original SRS acceptance criterion has been independently
 verified.
 
-## 6. Coverage and outstanding verification
+## 7. Coverage and outstanding verification
 
 The latest production-only LLVM coverage results are:
 
-- Line coverage: 88.71%
-- Region coverage: 91.16%
+- Line coverage: 91.65%
+- Region coverage: 93.44%
 - Function coverage: 100.00%
-- Branch coverage: 82.58%
+- Branch coverage: 86.55%
 
 Outstanding or limited verification:
 
-1. TC-06: Complete compression-statistics acceptance evidence is not
-   independently recorded.
-2. TC-08: CRC field transport and malformed archive rejection do not
-   establish end-to-end CRC32 integrity verification. Confirm CRC-enabled
-   decompression behaviour separately.
-3. TC-10: The 10 MB performance target has not been verified with recorded
-   timings.
+1. TC-06: Complete compression-statistics acceptance evidence is not independently recorded.
+2. TC-08: CRC32 corruption detection was verified manually; this does not replace exhaustive archive-integrity testing.
+3. TC-10: The 5-second target was met in one local 10 MiB benchmark; performance varies by machine and data.
 4. Platform-dependent permission and symlink tests may be skipped when the
    operating system or account cannot exercise those conditions.
 5. LLVM reported one function with mismatched coverage data. This warning
    is recorded in the coverage reports.
 
-## 7. Archive format clarifications
+## 8. Archive format clarifications
 
 The version-1 HUF archive:
 
@@ -104,7 +105,7 @@ Accordingly, TC-05 no longer expects a stored filename, and TC-09 tests
 CLI destination-path safety rather than archive-controlled extraction
 paths.
 
-## 8. Related documents
+## 9. Related documents
 
 - Docs/ARCHIVE_FORMAT.md
 - Docs/ARCHIVE_INFO.md
