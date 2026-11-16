@@ -1,7 +1,7 @@
 # System Validation Report
 
 **Project:** Team 14 - File Compression Tool
-**Date:** 4 November 2026
+**Date:** 10 November 2026
 **Validation method:** Automated CTest execution and production coverage analysis
 
 ## 1. Objective
@@ -22,7 +22,7 @@ The complete registered CTest suite was executed using:
 
 `ctest --test-dir build --output-on-failure`
 
-**Result:** 17 tests passed, 0 failed.
+**Result:** 19 tests passed, 0 failed.
 
 ## 4. Validation Areas
 
@@ -33,6 +33,8 @@ The complete registered CTest suite was executed using:
 | Archive handling | Archive and archive-info tests | PASS |
 | Command-line interface | CLI help and overwrite CLI tests | PASS |
 | File operations | File I/O tests | PASS |
+| File I/O fault injection | 23 file I/O fault checks | PASS |
+| Huffman fault handling | 12 Huffman fault checks | PASS |
 | Input validation | Validation tests | PASS |
 | Output publication safety | Publication fault tests | PASS |
 | Destination collision handling | No-overwrite race tests | PASS |
@@ -50,20 +52,26 @@ The no-overwrite race tests exercise late destination collisions involving files
 
 The production coverage run reported:
 
-- Line coverage: 88.71%
-- Branch coverage: 82.58%
+- Line coverage: 91.65%
+- Branch coverage: 86.55%
 - Function coverage: 100.00%
-- Region coverage: 91.16%
+- Region coverage: 93.44%
 
 LLVM also emitted a `1 functions have mismatched data` warning. This remains an open tooling limitation.
 
-## 7. Limitations
+## 7. Additional Manual Verification
+
+- CRC32 integrity: an archive with an altered checksum was rejected; no invalid output was published.
+- Performance: 10 MiB binary input; compression 2.96 s and decompression 3.56 s; byte-for-byte comparison passed.
+- These observations were recorded during local PR verification and were not part of the 19 registered CTest cases.
+
+## 8. Limitations
 
 - Results represent the registered automated tests, not exhaustive proof of correctness.
 - Platform-dependent symlink scenarios may be skipped where unsupported.
-- Performance acceptance targets have not been independently established by this report.
+- A separate macOS 10 MiB benchmark recorded compression in 2.96 s and decompression in 3.56 s, with identical restored bytes. These timings are machine-specific.
 - Uncovered production branches remain, particularly in controller and file I/O.
 
-## 8. Conclusion
+## 9. Conclusion
 
-The integrated application passed all 17 registered automated tests. The tested compression, decompression, archive, command-line, validation, and output-safety scenarios completed successfully. Further testing is recommended for uncovered branches and performance requirements specified in the project test plan.
+The integrated application passed all 19 registered automated tests. The tested compression, decompression, archive, command-line, validation, and output-safety scenarios completed successfully. Further testing is recommended for uncovered branches and performance requirements specified in the project test plan.
