@@ -70,4 +70,4 @@ The recorded verification covers:
 
 These tests do not establish exhaustive malformed-input coverage, CRC32 integrity verification, or performance against the SRS target.
 
-See [ARCHIVE_FORMAT.md](../Docs/ARCHIVE_FORMAT.md) for the archive format and its structural rules.
+See [ARCHIVE_FORMAT.md](../Docs/Technical/ARCHIVE_FORMAT.md) for the archive format and its structural rules.

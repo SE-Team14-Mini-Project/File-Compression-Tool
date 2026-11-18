@@ -2,7 +2,7 @@
 
 **PES University | Software Engineering Mini-Project | C++17**
 
-A planned command-line, **lossless file compressor and decompressor** built around Huffman coding. This is a **custom ZIP-style educational utility**, not a standard `.zip` / DEFLATE implementation. The archive extension is `.huf`, and version 1 of our format is defined in [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md).
+A planned command-line, **lossless file compressor and decompressor** built around Huffman coding. This is a **custom ZIP-style educational utility**, not a standard `.zip` / DEFLATE implementation. The archive extension is `.huf`, and version 1 of our format is defined in [`Docs/ARCHIVE_FORMAT.md`](Docs/Technical/ARCHIVE_FORMAT.md).
 
 > **Build status:** CMake now builds the existing C++17 modules and `huf` CLI and registers the available tests with CTest. Development and integration are ongoing; a successful build is not a claim that every planned acceptance/security requirement is complete.
 
@@ -18,7 +18,7 @@ ctest --test-dir build --output-on-failure
 ./build/huf help
 ```
 
-See [build instructions](Docs/BUILDING.md) for Windows/Visual Studio, Release
+See [build instructions](Docs/Technical/BUILDING.md) for Windows/Visual Studio, Release
 builds, compiler selection, test targets and verification limitations.
 
 ## What we are building
@@ -47,7 +47,7 @@ Responsibilities describe component ownership; everybody reviews integration cha
 **The two files below must be reviewed together:**
 
 1. [`include/interfaces.h`](include/interfaces.h) — shared **C++ declarations**: types, function signatures, result/error codes, statistics and module hand-offs. It does **not** contain implementations.
-2. [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md) — precise `.huf` **binary file format**: byte offsets, endianness, sparse frequencies, tree tie-breaking, payload bits, padding, CRC32 flags, edge cases, and validation rules.
+2. [`Docs/ARCHIVE_FORMAT.md`](Docs/Technical/ARCHIVE_FORMAT.md) — precise `.huf` **binary file format**: byte offsets, endianness, sparse frequencies, tree tie-breaking, payload bits, padding, CRC32 flags, edge cases, and validation rules.
 
 ### Why both files matter
 
@@ -125,7 +125,7 @@ The original layout above describes module ownership; `src/`, the available `tes
 ./build/huf help
 ```
 
-The CLI reports errors and nonzero exit codes on failure. See [build instructions](Docs/BUILDING.md) for executable locations and test commands.
+The CLI reports errors and nonzero exit codes on failure. See [build instructions](Docs/Technical/BUILDING.md) for executable locations and test commands.
 
 ## Sprint plan
 
@@ -164,7 +164,7 @@ These are **planned acceptance expectations**, not completed test results.
 - [GitHub Project / sprint backlog](https://github.com/orgs/SE-Team14-Mini-Project/projects/1)
 - Part-1 deliverables: **SRS**, **Software Test Plan**, and **Software Architecture and Design (SAD)** — consult the versions committed to this repository.
 
-- [`Docs/ARCHIVE_FORMAT.md`](Docs/ARCHIVE_FORMAT.md) for exact on-disk details and the worked `AAAAABBBCC` test vector.
+- [`Docs/ARCHIVE_FORMAT.md`](Docs/Technical/ARCHIVE_FORMAT.md) for exact on-disk details and the worked `AAAAABBBCC` test vector.
 - [Round-trip restoration tests](tests/ROUND_TRIP_TESTS.md) - Issue #7 test coverage and verification instructions.
 
 **Change control:** once the team approves the interface/archive baseline, do not change a signature, field offset, encoding rule, or error convention silently. Update both contract documents and relevant tests in the same reviewed PR.
